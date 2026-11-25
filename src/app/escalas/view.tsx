@@ -1,8 +1,9 @@
 "use client";
 
-import { Check, CircleAlert, Clock, Plus, Sparkles, X } from "lucide-react";
+import { Check, CircleAlert, Clock, Plus, RotateCcw, Sparkles, X } from "lucide-react";
 import { TODAY } from "@/mocks/queries";
 import { useQueries } from "@/store/use-queries";
+import { useStore } from "@/store/data-store";
 import { dateTime, num, shortName } from "@/lib/format";
 import { Button } from "@/ui/button";
 import {
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 
 
 export function View() {
+  const { respondAssignment } = useStore();
   const { incompleteSchedules, pendingConfirmations, slotStatuses } = useQueries();
   const all = slotStatuses();
   const upcoming = all.filter((s) => new Date(s.event.startsAt) >= TODAY);
@@ -215,7 +217,12 @@ export function View() {
                             >
                               {shortName(a.person.name)}
                             </span>
-                            <StatusIcon status={a.status} />
+                            <AssignmentActions
+                              id={a.id}
+                              status={a.status}
+                              name={a.person.name}
+                              onRespond={respondAssignment}
+                            />
                           </li>
                         ))}
 
@@ -243,23 +250,73 @@ export function View() {
   );
 }
 
-function StatusIcon({ status }: { status: "invited" | "confirmed" | "declined" }) {
-  if (status === "confirmed")
+/**
+ * Mostra a situação e, quando o convite ainda está em aberto, permite
+ * responder ali mesmo — o coordenador quase sempre recebe a resposta por
+ * mensagem e precisa registrar sem sair da tela.
+ */
+function AssignmentActions({
+  id,
+  status,
+  name,
+  onRespond,
+}: {
+  id: string;
+  status: "invited" | "confirmed" | "declined";
+  name: string;
+  onRespond: (id: string, status: "confirmed" | "declined") => void;
+}) {
+  if (status === "invited") {
     return (
-      <span title="Confirmado" className="shrink-0 text-success">
-        <Check className="size-3.5" />
+      <span className="flex shrink-0 items-center gap-0.5">
+        <button
+          type="button"
+          title={`Confirmar ${name}`}
+          aria-label={`Confirmar ${name}`}
+          onClick={() => onRespond(id, "confirmed")}
+          className="rounded-full p-1 text-fg-muted transition-colors hover:bg-success-bg hover:text-success dark:hover:bg-success/15"
+        >
+          <Check className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          title={`Registrar recusa de ${name}`}
+          aria-label={`Registrar recusa de ${name}`}
+          onClick={() => onRespond(id, "declined")}
+          className="rounded-full p-1 text-fg-muted transition-colors hover:bg-danger-bg hover:text-danger dark:hover:bg-danger/15"
+        >
+          <X className="size-3.5" />
+        </button>
       </span>
     );
-  if (status === "declined")
+  }
+
+  if (status === "confirmed") {
     return (
-      <span title="Recusou" className="shrink-0 text-danger">
-        <X className="size-3.5" />
-      </span>
+      <button
+        type="button"
+        title={`Confirmado — desfazer resposta de ${name}`}
+        aria-label={`Desfazer confirmação de ${name}`}
+        onClick={() => onRespond(id, "declined")}
+        className="group/status flex shrink-0 items-center text-success"
+      >
+        <Check className="size-3.5 group-hover/status:hidden" />
+        <RotateCcw className="hidden size-3.5 group-hover/status:block" />
+      </button>
     );
+  }
+
   return (
-    <span title="Aguardando resposta" className="shrink-0 text-warning">
-      <Clock className="size-3.5" />
-    </span>
+    <button
+      type="button"
+      title={`Recusou — marcar ${name} como confirmado`}
+      aria-label={`Confirmar ${name}`}
+      onClick={() => onRespond(id, "confirmed")}
+      className="group/status flex shrink-0 items-center text-danger"
+    >
+      <X className="size-3.5 group-hover/status:hidden" />
+      <Check className="hidden size-3.5 group-hover/status:block" />
+    </button>
   );
 }
 

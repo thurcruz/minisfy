@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -10,6 +11,7 @@ import {
   Plus,
 } from "lucide-react";
 import { useQueries } from "@/store/use-queries";
+import { TransactionFormModal } from "@/modules/finance/transaction-form";
 import { dateNumeric, delta, money, num } from "@/lib/format";
 import { GroupedBarChart, HBarChart, Legend } from "@/ui/charts";
 import { Button } from "@/ui/button";
@@ -51,6 +53,8 @@ const STATUS_TONE: Record<
 
 export function View() {
   const { balanceByAccount, currentBalance, expensesByCategory, financeSeries, financeSummary, getAccount, getCategory, listTransactions, upcomingPayables } = useQueries();
+  const [formOpen, setFormOpen] = useState(false);
+
   const summary = financeSummary();
   const series = financeSeries(undefined, 6);
   const previous = series.at(-2);
@@ -79,7 +83,7 @@ export function View() {
               <Download />
               Exportar
             </Button>
-            <Button size="sm">
+            <Button size="sm" onClick={() => setFormOpen(true)}>
               <Plus />
               Novo lançamento
             </Button>
@@ -362,6 +366,8 @@ export function View() {
           Valores em centavos inteiros, nunca ponto flutuante
         </span>
       </div>
+
+      {formOpen && <TransactionFormModal onOpenChange={setFormOpen} />}
     </div>
   );
 }

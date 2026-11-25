@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import { TODAY } from "@/mocks/queries";
 import { useQueries } from "@/store/use-queries";
+import { MeetingReportModal } from "@/modules/groups/meeting-report";
 import {
   age,
   dateShort,
@@ -49,8 +51,16 @@ import { cn } from "@/lib/utils";
 
 export function View({ id }: { id: string }) {
   const { groupProfile } = useQueries();
+  const [reportId, setReportId] = useState<string | null>(null);
   const g = groupProfile(id);
   if (!g) notFound();
+
+  /** Encontro que o botão principal abre: o pendente mais recente,
+   *  ou o próximo agendado quando não há pendência. */
+  const pendingReport = g.meetings.find((m) => m.heldAt && !m.reported);
+  const defaultMeeting = pendingReport ?? g.nextMeeting ?? g.meetings[0] ?? null;
+  const activeMeeting =
+    g.meetings.find((m) => m.id === reportId) ?? defaultMeeting;
 
   const full = g.occupancy >= 0.9;
   const held = g.meetings.filter((m) => m.heldAt);
@@ -76,7 +86,11 @@ export function View({ id }: { id: string }) {
               <Pencil />
               Editar
             </Button>
-            <Button size="sm">
+            <Button
+              size="sm"
+              onClick={() => setReportId(defaultMeeting?.id ?? null)}
+              disabled={!defaultMeeting}
+            >
               <Plus />
               Registrar encontro
             </Button>
@@ -94,7 +108,11 @@ export function View({ id }: { id: string }) {
                 ? "encontro realizado sem relatório"
                 : "encontros realizados sem relatório"}
             </p>
-            <Button variant="secondary" size="sm">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setReportId(pending[0]?.id ?? null)}
+            >
               Enviar relatório
             </Button>
           </div>
@@ -160,6 +178,9 @@ export function View({ id }: { id: string }) {
                     Oferta
                   </Th>
                   <Th>Relatório</Th>
+                  <Th>
+                    <span className="sr-only">Ações</span>
+                  </Th>
                 </tr>
               </thead>
               <tbody>
@@ -195,6 +216,15 @@ export function View({ id }: { id: string }) {
                         ) : (
                           <Badge tone="warning">Pendente</Badge>
                         )}
+                      </Td>
+                      <Td className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setReportId(m.id)}
+                        >
+                          {future ? "Antecipar" : m.reported ? "Editar" : "Relatar"}
+                        </Button>
                       </Td>
                     </Tr>
                   );
@@ -299,6 +329,16 @@ export function View({ id }: { id: string }) {
           </Card>
         </div>
       </div>
+
+      {reportId !== null && activeMeeting && (
+        <MeetingReportModal
+          key={activeMeeting.id}
+          onOpenChange={(next) => !next && setReportId(null)}
+          group={g.group}
+          meeting={activeMeeting}
+          memberCount={g.memberCount}
+        />
+      )}
     </div>
   );
 }

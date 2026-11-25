@@ -27,6 +27,7 @@ autenticação nem permissões** — por decisão sua, o backend vem depois.
 | 2026-11-25 | Modelo estendido: composição familiar, contatos de emergência, ordem do culto, inscrições, reservas, perfis e bloqueios de voluntário |
 | 2026-11-25 | Telas de detalhe: perfil de pessoa e de pequeno grupo |
 | 2026-11-25 | Store do protótipo com persistência no navegador; cadastro e edição de pessoa salvam de verdade; busca, filtros e paginação funcionais |
+| 2026-11-25 | Relatório de encontro, lançamento financeiro e resposta de convite de escala — os três salvam e recalculam os indicadores |
 
 ### Decisões aprovadas por você
 
@@ -42,8 +43,8 @@ Nada em andamento. Aguardando sua direção sobre o próximo passo.
 
 | Prioridade | Item |
 |---|---|
-| Alta | Formulários restantes: relatório de encontro, lançamento financeiro, confirmação de escala (ações já existem no store) |
 | Alta | Telas de detalhe de visitante, ministério, evento e lançamento |
+| Alta | Formulários de grupo, evento, reserva e ministério (hoje só pessoa, encontro e lançamento) |
 | Média | Telas restantes: Pastoral, Ensino, Comunicação, Pass, Portal do Membro, Patrimônio, Estoque, Relatórios, Intelligence, Flow, Configurações |
 | Alta | Fase 1 — Supabase: tenancy, RBAC, RLS, autenticação |
 | Média | Validação responsiva em telas pequenas (ver *Problemas*) |
@@ -100,8 +101,8 @@ Todas em `docs/01-ARQUITETURA.md` (AD-01 a AD-14). Adicionais tomadas no protót
 
 ## Próximos passos
 
-1. **Completar os formulários** usando o store que já existe: relatório de
-   encontro do líder, lançamento financeiro e confirmação de escala.
+1. **Telas de detalhe que faltam** (visitante, ministério, evento) e os
+   formulários de criação de grupo, evento e reserva.
 2. **Subir para GitHub + Vercel** quando você quiser compartilhar o link.
 3. **Fase 1** (Supabase, tenancy, RBAC, autenticação), trocando `mocks/` por
    dados reais.
