@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Download, Filter, Plus, Upload, Users } from "lucide-react";
 import {
   ageDistribution,
@@ -173,19 +174,22 @@ export default function MembrosPage() {
                   const unit = getUnit(person.unitId);
                   const group = person.groupId ? getGroup(person.groupId) : null;
                   return (
-                    <Tr key={person.id}>
+                    <Tr key={person.id} className="group cursor-pointer">
                       <Td>
-                        <div className="flex items-center gap-2.5">
+                        <Link
+                          href={`/membros/${person.id}`}
+                          className="flex items-center gap-2.5"
+                        >
                           <Avatar name={person.name} size="sm" />
                           <div className="min-w-0">
-                            <p className="truncate font-medium text-fg">
+                            <p className="truncate font-medium text-fg group-hover:text-interactive">
                               {person.name}
                             </p>
                             <p className="truncate text-[12px] text-fg-muted">
                               {person.neighborhood}
                             </p>
                           </div>
-                        </div>
+                        </Link>
                       </Td>
                       <Td className="hidden md:table-cell">
                         <Badge tone={STATUS_TONE[person.status]}>

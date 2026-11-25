@@ -995,3 +995,233 @@ export function idleVolunteers(scope: Scope = ALL_UNITS) {
     (v) => v.assignedThisMonth === 0 && !v.activeBlackout,
   );
 }
+
+/* ================================================================== */
+/* Perfil de pessoa — tela de detalhe                                  */
+/* ================================================================== */
+
+export interface TimelineEntry {
+  id: string;
+  date: string;
+  label: string;
+  detail: string | null;
+  kind: "membership" | "group" | "ministry" | "visit" | "record";
+}
+
+export function personProfile(personId: string) {
+  const person = PEOPLE_BY_ID.get(personId);
+  if (!person) return null;
+
+  const unit = UNITS_BY_ID.get(person.unitId);
+  const group = person.groupId ? GROUPS_BY_ID.get(person.groupId) : null;
+  const groupLeader = group ? PEOPLE_BY_ID.get(group.leaderId) : null;
+
+  const familyLink = familyMembers.find((fm) => fm.personId === personId);
+  const family = familyLink
+    ? families.find((f) => f.id === familyLink.familyId)
+    : null;
+  const relatives = family
+    ? familyMembers
+        .filter((fm) => fm.familyId === family.id && fm.personId !== personId)
+        .map((fm) => ({ ...fm, person: PEOPLE_BY_ID.get(fm.personId)! }))
+        .filter((r) => r.person)
+    : [];
+
+  const personMinistries = person.ministryIds
+    .map((id) => MINISTRIES_BY_ID.get(id))
+    .filter((m): m is NonNullable<typeof m> => Boolean(m))
+    .map((ministry) => ({
+      ministry,
+      isLeader: ministry.leaderId === personId,
+      positions: volunteerProfiles
+        .filter((v) => v.personId === personId && v.ministryId === ministry.id)
+        .flatMap((v) => v.positionIds.map((id) => POSITIONS_BY_ID.get(id)!))
+        .filter(Boolean),
+    }));
+
+  const assignments = slotStatuses(ALL_UNITS)
+    .flatMap((slot) =>
+      slot.assignments
+        .filter((a) => a.person.id === personId)
+        .map((a) => ({ status: a.status, slot })),
+    )
+    .sort((a, b) =>
+      b.slot.event.startsAt.localeCompare(a.slot.event.startsAt),
+    );
+
+  const upcomingAssignments = assignments.filter(
+    (a) => new Date(a.slot.event.startsAt) >= TODAY,
+  );
+  const pastAssignments = assignments.filter(
+    (a) => new Date(a.slot.event.startsAt) < TODAY,
+  );
+
+  const registrations = eventRegistrations
+    .filter((r) => r.personId === personId && r.status !== "cancelled")
+    .map((r) => ({ registration: r, event: EVENTS_BY_ID.get(r.eventId)! }))
+    .filter((r) => r.event)
+    .sort((a, b) => b.event.startsAt.localeCompare(a.event.startsAt));
+
+  const journey = visitorJourneys.find((j) => j.personId === personId) ?? null;
+  const stage = journey
+    ? (visitorStages.find((s) => s.id === journey.stageId) ?? null)
+    : null;
+
+  const blackouts = volunteerBlackouts.filter((b) => b.personId === personId);
+  const availability = volunteerAvailability.filter(
+    (a) => a.personId === personId,
+  );
+
+  /* Linha do tempo — montada só com o que o sistema realmente sabe */
+  const timeline: TimelineEntry[] = [
+    {
+      id: "t-created",
+      date: person.createdAt,
+      label: "Cadastro criado",
+      detail: null,
+      kind: "record",
+    },
+  ];
+
+  if (person.memberSince !== person.createdAt || person.status !== "visitor") {
+    timeline.push({
+      id: "t-membership",
+      date: person.memberSince,
+      label:
+        person.status === "member"
+          ? "Tornou-se membro"
+          : person.status === "regular"
+            ? "Passou a congregar"
+            : "Início do vínculo",
+      detail: unit?.name ?? null,
+      kind: "membership",
+    });
+  }
+
+  if (journey) {
+    timeline.push({
+      id: "t-visit",
+      date: journey.firstVisitAt,
+      label: "Primeira visita",
+      detail: `${journey.visitCount} ${journey.visitCount === 1 ? "visita" : "visitas"} registradas`,
+      kind: "visit",
+    });
+  }
+
+  for (const m of personMinistries) {
+    const profile = volunteerProfiles.find(
+      (v) => v.personId === personId && v.ministryId === m.ministry.id,
+    );
+    if (profile) {
+      timeline.push({
+        id: `t-min-${m.ministry.id}`,
+        date: profile.since,
+        label: `Entrou no ministério de ${m.ministry.name}`,
+        detail: m.isLeader ? "Como líder" : null,
+        kind: "ministry",
+      });
+    }
+  }
+
+  if (group) {
+    timeline.push({
+      id: "t-group",
+      date: group.startedAt > person.memberSince ? group.startedAt : person.memberSince,
+      label: `Participa do ${group.name}`,
+      detail:
+        group.leaderId === personId
+          ? "Como líder"
+          : groupLeader
+            ? `Líder: ${groupLeader.name}`
+            : null,
+      kind: "group",
+    });
+  }
+
+  timeline.sort((a, b) => b.date.localeCompare(a.date));
+
+  return {
+    person,
+    unit,
+    family,
+    familyRole: familyLink?.role ?? null,
+    isGuardian: familyLink?.isGuardian ?? false,
+    relatives,
+    group,
+    groupLeader,
+    ministries: personMinistries,
+    upcomingAssignments,
+    pastAssignments,
+    confirmedCount: pastAssignments.filter((a) => a.status === "confirmed").length,
+    registrations,
+    journey,
+    stage,
+    blackouts,
+    availability,
+    emergencyContacts: emergencyContacts.filter((c) => c.personId === personId),
+    timeline,
+  };
+}
+
+/** Pessoa anterior e seguinte na listagem, para navegar sem voltar. */
+export function personNeighbours(personId: string, scope: Scope = ALL_UNITS) {
+  const list = listPeople(scope);
+  const index = list.findIndex((p) => p.id === personId);
+  if (index === -1) return { previous: null, next: null, index: -1, total: list.length };
+  return {
+    previous: index > 0 ? list[index - 1]! : null,
+    next: index < list.length - 1 ? list[index + 1]! : null,
+    index,
+    total: list.length,
+  };
+}
+
+/* ================================================================== */
+/* Perfil de pequeno grupo — tela de detalhe                           */
+/* ================================================================== */
+
+export function groupProfile(groupId: string) {
+  const group = GROUPS_BY_ID.get(groupId);
+  if (!group) return null;
+
+  const stats = groupsWithStats(ALL_UNITS).find((g) => g.group.id === groupId);
+  if (!stats) return null;
+
+  const members = people
+    .filter((p) => p.groupId === groupId)
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+  const meetings = groupMeetings
+    .filter((m) => m.groupId === groupId)
+    .sort((a, b) => b.scheduledFor.localeCompare(a.scheduledFor));
+
+  const held = meetings.filter((m) => m.heldAt);
+  const totalOffering = held.reduce((s, m) => s + m.offeringCents, 0);
+  const totalVisitors = held.reduce((s, m) => s + m.visitorCount, 0);
+
+  const series = held
+    .slice()
+    .sort((a, b) => a.scheduledFor.localeCompare(b.scheduledFor))
+    .map((m) => ({
+      label: new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+      }).format(new Date(m.scheduledFor)),
+      value: m.presentCount,
+    }));
+
+  /** Participantes do grupo que também servem em algum ministério */
+  const serving = members.filter((m) => m.ministryIds.length > 0);
+
+  return {
+    ...stats,
+    unit: UNITS_BY_ID.get(group.unitId),
+    members,
+    meetings,
+    series,
+    totalOffering,
+    totalVisitors,
+    serving,
+    nextMeeting: meetings.find((m) => !m.heldAt) ?? null,
+  };
+}

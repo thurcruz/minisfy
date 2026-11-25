@@ -309,34 +309,74 @@ export const smallGroups: SmallGroup[] = [
   { id: "g-jardim", unitId: "u-jardim", name: "GC Jardim América", category: "Famílias", weekday: 4, startTime: "19:30", neighborhood: "Jardim América", capacity: 20, leaderId: "p-07", hostId: "p-09", status: "active", startedAt: d("2020-10-15") },
 ];
 
-/** Últimos 8 encontros de cada grupo. Presença varia de forma realista. */
+/**
+ * Últimos 8 encontros de cada grupo.
+ *
+ * A presença é DERIVADA do número de participantes, não escrita à mão:
+ * caso contrário um grupo de 8 pessoas acabava com média de 17 presentes.
+ * Cada grupo tem um fator de crescimento próprio — alguns encolhem.
+ */
 function buildMeetings(): GroupMeeting[] {
   const out: GroupMeeting[] = [];
-  const profile: Record<string, number[]> = {
-    "g-cambui": [11, 12, 10, 13, 12, 14, 13, 14],
-    "g-taquaral": [9, 8, 10, 9, 11, 10, 11, 12],
-    "g-centro": [15, 14, 16, 13, 15, 14, 13, 12],
-    "g-barao": [12, 14, 15, 16, 15, 17, 18, 19],
-    "g-mansoes": [7, 8, 6, 8, 7, 9, 8, 9],
-    "g-jardim": [14, 15, 13, 14, 16, 15, 16, 17],
+
+  /** Crescimento semanal por grupo: positivo cresce, negativo encolhe. */
+  const growth: Record<string, number> = {
+    "g-cambui": 0.018,
+    "g-taquaral": 0.022,
+    "g-centro": -0.015,
+    "g-barao": 0.03,
+    "g-mansoes": 0.012,
+    "g-jardim": 0.016,
   };
+
   for (const g of smallGroups) {
-    const series = profile[g.id]!;
-    series.forEach((present, i) => {
-      const weeksAgo = series.length - i;
+    const memberCount = people.filter((p) => p.groupId === g.id).length;
+    if (memberCount === 0) continue;
+
+    const rate = growth[g.id] ?? 0;
+    // Frequência típica: 70% dos participantes na primeira semana da série
+    const base = memberCount * 0.7;
+
+    for (let i = 0; i < 8; i++) {
+      const weeksAgo = 8 - i;
       const date = new Date(TODAY);
       date.setDate(date.getDate() - weeksAgo * 7);
-      const held = weeksAgo > 0;
+
+      // Oscilação determinística de ±1, para a série não ficar artificial
+      const wobble = [0, 1, -1, 0, 1, 0, -1, 1][i]!;
+      const visitors = i % 3 === 0 ? 1 : 0;
+      const present = Math.max(
+        2,
+        Math.min(
+          memberCount + visitors,
+          Math.round(base * (1 + rate * i) + wobble),
+        ),
+      );
+
       out.push({
         id: `m-${g.id}-${i}`,
         groupId: g.id,
         scheduledFor: date.toISOString(),
-        heldAt: held ? date.toISOString() : null,
+        heldAt: date.toISOString(),
         presentCount: present,
-        visitorCount: i % 3 === 0 ? 1 : 0,
+        visitorCount: visitors,
         offeringCents: present * 1500 + (i % 4) * 2300,
         reported: weeksAgo > 1,
       });
+    }
+
+    // Próximo encontro, ainda não realizado
+    const next = new Date(TODAY);
+    next.setDate(next.getDate() + ((g.weekday - TODAY.getDay() + 7) % 7 || 7));
+    out.push({
+      id: `m-${g.id}-next`,
+      groupId: g.id,
+      scheduledFor: next.toISOString(),
+      heldAt: null,
+      presentCount: 0,
+      visitorCount: 0,
+      offeringCents: 0,
+      reported: false,
     });
   }
   return out;

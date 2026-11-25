@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { MapPin, Plus, TrendingDown, TrendingUp, UsersRound } from "lucide-react";
 import { getUnit, groupAttendanceSeries, groupsWithStats } from "@/mocks/queries";
 import { delta, money, num, percent, shortName, weekday } from "@/lib/format";
@@ -148,12 +149,20 @@ export default function GruposPage() {
             const unit = getUnit(g.group.unitId);
             const full = g.occupancy >= 0.9;
             return (
-              <Card key={g.group.id}>
+              <Card
+                key={g.group.id}
+                className="relative transition-colors hover:border-strong"
+              >
                 <CardBody>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h3 className="truncate text-[15px] font-semibold text-fg">
-                        {g.group.name}
+                        <Link
+                          href={`/grupos/${g.group.id}`}
+                          className="after:absolute after:inset-0 hover:text-interactive"
+                        >
+                          {g.group.name}
+                        </Link>
                       </h3>
                       <p className="mt-0.5 flex items-center gap-1 truncate text-[12px] text-fg-muted">
                         <MapPin className="size-3 shrink-0" />
