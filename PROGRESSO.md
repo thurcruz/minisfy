@@ -5,10 +5,9 @@
 
 ## Estado atual
 
-**Fase 0 — Fundação técnica · concluída (trilha protótipo).**
-Aplicação roda, compila, passa typecheck e lint. Oito telas funcionais com dados
-de uma igreja fictícia. **Ainda não há banco, autenticação nem permissões** —
-por decisão sua, o backend vem depois do protótipo.
+**Protótipo · 13 de 34 telas.**
+Aplicação roda, compila, passa typecheck e lint. **Ainda não há banco,
+autenticação nem permissões** — por decisão sua, o backend vem depois.
 
 ## Concluído
 
@@ -24,6 +23,8 @@ por decisão sua, o backend vem depois do protótipo.
 | 2026-11-25 | App shell: sidebar de 9 grupos, 33 itens, topbar, tema |
 | 2026-11-25 | Igreja fictícia "Comunidade Esperança": 72 pessoas, 2 unidades |
 | 2026-11-25 | Telas: Dashboard, Membros, Visitantes, Grupos, Ministérios, Escalas, Agenda, Financeiro |
+| 2026-11-25 | Telas: Famílias, Cultos, Eventos, Reservas, Voluntários |
+| 2026-11-25 | Modelo estendido: composição familiar, contatos de emergência, ordem do culto, inscrições, reservas, perfis e bloqueios de voluntário |
 
 ### Decisões aprovadas por você
 
@@ -39,7 +40,8 @@ Nada em andamento. Aguardando sua direção sobre o próximo passo.
 
 | Prioridade | Item |
 |---|---|
-| Alta | Telas restantes do protótipo (Famílias, Cultos, Eventos, Reservas, Pastoral, Ensino, Comunicação, Pass, Portal) |
+| Alta | Telas de detalhe (perfil de membro, de grupo, de lançamento) e formulários funcionais |
+| Média | Telas restantes: Pastoral, Ensino, Comunicação, Pass, Portal do Membro, Patrimônio, Estoque, Relatórios, Intelligence, Flow, Configurações |
 | Alta | Fase 1 — Supabase: tenancy, RBAC, RLS, autenticação |
 | Média | Validação responsiva em telas pequenas (ver *Problemas*) |
 | Média | Repositório no GitHub + deploy na Vercel |
@@ -77,16 +79,18 @@ Todas em `docs/01-ARQUITETURA.md` (AD-01 a AD-14). Adicionais tomadas no protót
 | 4 | `dark:` do Tailwind v4 seguia o SO, ignorando o botão de tema | ✅ corrigido com `@custom-variant dark` |
 | 5 | Hydration mismatch no botão de tema | ✅ corrigido — ícones por CSS, sem efeito |
 | 6 | Vaga de escala contada duas vezes (convite pendente + vaga aberta) | ✅ corrigido — `open` vs. `missing` |
-| 7 | Responsividade em telas pequenas não verificada visualmente | ⚠️ aberto — redimensionamento falhou no ambiente de teste |
-| 8 | Tipografia da marca não fornecida | ⚠️ aberto — usando Sora como display |
+| 7 | `new Date("YYYY-MM-DD")` lido como UTC em mais pontos de consulta | ✅ corrigido — `toDate()` em todas as comparações |
+| 8 | Gerador de inscrições repetia pessoas: lista de espera sempre zerada | ✅ corrigido — passo coprimo, sem repetição |
+| 9 | Crianças de 6 anos inscritas na Escola Bíblica | ✅ corrigido — filtro por faixa etária |
+| 10 | Conflito de reserva atribuído à reserva já aprovada, não ao pedido novo | ✅ corrigido |
+| 11 | Responsividade em telas pequenas não verificada visualmente | ⚠️ aberto — redimensionamento falhou no ambiente de teste |
+| 12 | Tipografia da marca não fornecida | ⚠️ aberto — usando Sora como display |
 
 ## Próximos passos
 
-Três caminhos, na ordem que eu recomendaria:
-
-1. **Completar o protótipo** com as telas restantes, para validar o produto
-   inteiro antes de investir em backend.
-2. **Subir para GitHub + Vercel**, para você compartilhar o link com pastores e
-   colher feedback.
-3. **Iniciar a Fase 1** (Supabase, tenancy, RBAC, autenticação) e trocar a
-   camada `mocks/` por dados reais.
+1. **Profundidade antes de largura**: telas de detalhe e formulários que
+   funcionam de verdade. Hoje só existem listagens — clicar num membro não
+   abre nada, e nenhum botão de cadastro faz algo.
+2. **Subir para GitHub + Vercel** quando você quiser compartilhar o link.
+3. **Fase 1** (Supabase, tenancy, RBAC, autenticação), trocando `mocks/` por
+   dados reais.

@@ -44,8 +44,9 @@ componentes continuam iguais.
 
 ## Telas prontas
 
-Dashboard · Membros · Visitantes (CRM kanban) · Pequenos grupos · Ministérios ·
-Escalas · Agenda · Financeiro.
+Dashboard · Membros · Visitantes (CRM kanban) · Famílias · Pequenos grupos ·
+Ministérios · Voluntários · Escalas · Agenda · Cultos · Eventos · Reservas ·
+Financeiro.
 
 Os demais itens do menu levam a uma página que informa em que fase do plano o
 módulo entra. Nenhum item é botão morto.

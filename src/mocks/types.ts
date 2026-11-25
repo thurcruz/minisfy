@@ -182,7 +182,6 @@ export interface ChurchEvent {
   endsAt: string;
   roomId: UUID | null;
   capacity: number | null;
-  registrations: number;
   expectedAttendance: number | null;
   actualAttendance: number | null;
 }
@@ -232,4 +231,128 @@ export interface Transaction {
   description: string;
   personId: UUID | null;
   reversalOfId: UUID | null;
+}
+
+/* ================================================================== */
+/* Famílias — Módulo 04                                                */
+/* ================================================================== */
+
+export type FamilyRole = "head" | "spouse" | "child" | "relative";
+
+export interface FamilyMember {
+  id: UUID;
+  familyId: UUID;
+  personId: UUID;
+  role: FamilyRole;
+  isGuardian: boolean;
+}
+
+export interface EmergencyContact {
+  id: UUID;
+  personId: UUID;
+  name: string;
+  phone: string;
+  relationship: string;
+}
+
+/* ================================================================== */
+/* Cultos — Módulo 09                                                  */
+/* ================================================================== */
+
+export type ServiceItemKind =
+  | "worship"
+  | "word"
+  | "notice"
+  | "offering"
+  | "prayer"
+  | "ordinance"
+  | "welcome";
+
+export interface Service {
+  id: UUID;
+  unitId: UUID;
+  eventId: UUID;
+  serviceType: string;
+  theme: string | null;
+  scripture: string | null;
+  preacherId: UUID | null;
+  hostId: UUID | null;
+  notes: string | null;
+}
+
+export interface ServiceItem {
+  id: UUID;
+  serviceId: UUID;
+  position: number;
+  title: string;
+  kind: ServiceItemKind;
+  durationMinutes: number;
+  responsibleId: UUID | null;
+  notes: string | null;
+}
+
+/* ================================================================== */
+/* Inscrições em eventos — Módulo 08                                   */
+/* ================================================================== */
+
+export type RegistrationStatus = "confirmed" | "waitlist" | "cancelled";
+
+export interface EventRegistration {
+  id: UUID;
+  eventId: UUID;
+  personId: UUID;
+  status: RegistrationStatus;
+  registeredAt: string;
+  amountCents: number;
+  paid: boolean;
+}
+
+/* ================================================================== */
+/* Reservas de espaço — Módulos 08 e 12                                */
+/* ================================================================== */
+
+export type ReservationStatus = "pending" | "approved" | "rejected" | "cancelled";
+
+export interface RoomReservation {
+  id: UUID;
+  unitId: UUID;
+  roomId: UUID;
+  eventId: UUID | null;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  status: ReservationStatus;
+  requestedById: UUID;
+  approvedById: UUID | null;
+  notes: string | null;
+}
+
+/* ================================================================== */
+/* Voluntários — Módulo 07                                             */
+/* ================================================================== */
+
+export interface VolunteerProfile {
+  id: UUID;
+  personId: UUID;
+  ministryId: UUID;
+  positionIds: UUID[];
+  /** Teto de escalas por mês definido pelo próprio voluntário */
+  maxPerMonth: number;
+  since: string;
+}
+
+export interface VolunteerAvailability {
+  id: UUID;
+  personId: UUID;
+  weekday: number;
+  startTime: string;
+  endTime: string;
+}
+
+export interface VolunteerBlackout {
+  id: UUID;
+  personId: UUID;
+  startsAt: string;
+  endsAt: string;
+  reason: string;
 }

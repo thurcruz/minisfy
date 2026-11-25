@@ -4,6 +4,7 @@ import {
   getRoom,
   getUnit,
   pastEvents,
+  registrationCount,
   TODAY,
   upcomingEvents,
 } from "@/mocks/queries";
@@ -53,7 +54,7 @@ export default function AgendaPage() {
     byDay.set(key, list);
   }
 
-  const withRegistrations = upcoming.filter((e) => e.registrations > 0);
+  const withRegistrations = upcoming.filter((e) => registrationCount(e.id) > 0);
 
   return (
     <div className="mx-auto max-w-[1400px]">
@@ -161,14 +162,14 @@ export default function AgendaPage() {
                                   )}
                                 </p>
 
-                                {event.capacity && event.registrations > 0 && (
+                                {event.capacity && registrationCount(event.id) > 0 && (
                                   <div className="mt-2 max-w-xs">
                                     <div className="mb-1 flex items-baseline justify-between text-[11px]">
                                       <span className="text-fg-muted">
                                         Inscrições
                                       </span>
                                       <span className="tnum text-fg-secondary">
-                                        {num(event.registrations)} /{" "}
+                                        {num(registrationCount(event.id))} /{" "}
                                         {num(event.capacity)}
                                       </span>
                                     </div>
@@ -177,7 +178,7 @@ export default function AgendaPage() {
                                         className="h-full rounded-full bg-interactive"
                                         style={{
                                           width: `${Math.min(
-                                            (event.registrations /
+                                            (registrationCount(event.id) /
                                               event.capacity) *
                                               100,
                                             100,
@@ -213,7 +214,7 @@ export default function AgendaPage() {
                       {event.title}
                     </p>
                     <p className="tnum mt-1 text-[12px] text-fg-muted">
-                      {num(event.registrations)} de {num(event.capacity ?? 0)}{" "}
+                      {num(registrationCount(event.id))} de {num(event.capacity ?? 0)}{" "}
                       vagas
                     </p>
                   </li>

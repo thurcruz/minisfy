@@ -11,24 +11,40 @@
 
 import { age, toDate } from "@/lib/format";
 import {
+  emergencyContacts,
+  eventRegistrations,
   events,
+  familyMembers,
+  families,
   financialAccounts,
   financialCategories,
   groupMeetings,
   ministries,
   people,
   positions,
+  roomReservations,
   rooms,
   scheduleAssignments,
   scheduleSlots,
+  serviceItems,
+  services,
   smallGroups,
   TODAY,
   transactions,
   units,
   visitorJourneys,
   visitorStages,
+  volunteerAvailability,
+  volunteerBlackouts,
+  volunteerProfiles,
 } from "./seed";
-import type { Person, Transaction } from "./types";
+import type {
+  FamilyRole,
+  Person,
+  RoomReservation,
+  Transaction,
+  VolunteerProfile,
+} from "./types";
 
 export { organization, units, TODAY, visitorStages } from "./seed";
 
@@ -691,4 +707,291 @@ function startOfDay(date: Date) {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
   return d;
+}
+
+/* ================================================================== */
+/* Famílias — Módulo 04                                                */
+/* ================================================================== */
+
+const ROLE_ORDER: Record<FamilyRole, number> = {
+  head: 0,
+  spouse: 1,
+  child: 2,
+  relative: 3,
+};
+
+export function familiesWithMembers(scope: Scope = ALL_UNITS) {
+  return inScope(families, scope)
+    .map((family) => {
+      const members = familyMembers
+        .filter((fm) => fm.familyId === family.id)
+        .map((fm) => ({ ...fm, person: PEOPLE_BY_ID.get(fm.personId)! }))
+        .filter((m) => m.person)
+        .sort(
+          (a, b) =>
+            ROLE_ORDER[a.role] - ROLE_ORDER[b.role] ||
+            a.person.birthDate.localeCompare(b.person.birthDate),
+        );
+
+      const children = members.filter((m) => m.role === "child");
+
+      return {
+        family,
+        unit: UNITS_BY_ID.get(family.unitId),
+        members,
+        guardians: members.filter((m) => m.isGuardian),
+        childCount: children.length,
+        /** Crianças sem nenhum contato de emergência cadastrado */
+        childrenMissingContact: children.filter(
+          (c) => !emergencyContacts.some((ec) => ec.personId === c.personId),
+        ),
+      };
+    })
+    .sort((a, b) => a.family.name.localeCompare(b.family.name, "pt-BR"));
+}
+
+/** Pessoas sem família vinculada — o trabalho que falta no cadastro. */
+export function peopleWithoutFamily(scope: Scope = ALL_UNITS) {
+  const linked = new Set(familyMembers.map((fm) => fm.personId));
+  return inScope(people, scope).filter(
+    (p) => !linked.has(p.id) && p.status !== "visitor",
+  );
+}
+
+export const getEmergencyContacts = (personId: string) =>
+  emergencyContacts.filter((ec) => ec.personId === personId);
+
+/* ================================================================== */
+/* Cultos — Módulo 09                                                  */
+/* ================================================================== */
+
+export function servicesWithProgram(scope: Scope = ALL_UNITS) {
+  return inScope(services, scope)
+    .map((service) => {
+      const event = EVENTS_BY_ID.get(service.eventId)!;
+      const items = serviceItems
+        .filter((i) => i.serviceId === service.id)
+        .sort((a, b) => a.position - b.position)
+        .map((item) => ({
+          item,
+          responsible: item.responsibleId
+            ? PEOPLE_BY_ID.get(item.responsibleId)
+            : null,
+        }));
+
+      const plannedMinutes = items.reduce(
+        (s, i) => s + i.item.durationMinutes,
+        0,
+      );
+      const scheduledMinutes = Math.round(
+        (new Date(event.endsAt).getTime() - new Date(event.startsAt).getTime()) /
+          60_000,
+      );
+
+      return {
+        service,
+        event,
+        preacher: service.preacherId
+          ? PEOPLE_BY_ID.get(service.preacherId)
+          : null,
+        host: service.hostId ? PEOPLE_BY_ID.get(service.hostId) : null,
+        items,
+        plannedMinutes,
+        scheduledMinutes,
+        /** Programação estourando o tempo reservado para o culto */
+        overrunMinutes: Math.max(0, plannedMinutes - scheduledMinutes),
+        team: slotStatuses(scope).filter((s) => s.event.id === event.id),
+      };
+    })
+    .sort((a, b) => a.event.startsAt.localeCompare(b.event.startsAt));
+}
+
+/* ================================================================== */
+/* Eventos e inscrições — Módulo 08                                    */
+/* ================================================================== */
+
+export function registrationsFor(eventId: string) {
+  return eventRegistrations
+    .filter((r) => r.eventId === eventId && r.status !== "cancelled")
+    .map((r) => ({ registration: r, person: PEOPLE_BY_ID.get(r.personId)! }));
+}
+
+/** Contagem de confirmados — derivada das linhas, nunca um número solto. */
+export function registrationCount(eventId: string) {
+  return eventRegistrations.filter(
+    (r) => r.eventId === eventId && r.status === "confirmed",
+  ).length;
+}
+
+export function eventsWithRegistrations(scope: Scope = ALL_UNITS) {
+  return inScope(events, scope)
+    .filter((e) => e.capacity !== null)
+    .map((event) => {
+      const rows = registrationsFor(event.id);
+      const confirmed = rows.filter(
+        (r) => r.registration.status === "confirmed",
+      );
+      const waitlist = rows.filter((r) => r.registration.status === "waitlist");
+      const paidCents = confirmed
+        .filter((r) => r.registration.paid)
+        .reduce((s, r) => s + r.registration.amountCents, 0);
+      const pendingCents = confirmed
+        .filter((r) => !r.registration.paid)
+        .reduce((s, r) => s + r.registration.amountCents, 0);
+
+      return {
+        event,
+        unit: UNITS_BY_ID.get(event.unitId),
+        room: event.roomId ? ROOMS_BY_ID.get(event.roomId) : null,
+        confirmed,
+        waitlist,
+        occupancy: event.capacity ? confirmed.length / event.capacity : 0,
+        paidCents,
+        pendingCents,
+        isPaid: confirmed.some((r) => r.registration.amountCents > 0),
+      };
+    })
+    .sort((a, b) => a.event.startsAt.localeCompare(b.event.startsAt));
+}
+
+/* ================================================================== */
+/* Reservas de espaço — Módulos 08 e 12                                */
+/* ================================================================== */
+
+function overlaps(a: RoomReservation, b: RoomReservation) {
+  return (
+    new Date(a.startsAt) < new Date(b.endsAt) &&
+    new Date(b.startsAt) < new Date(a.endsAt)
+  );
+}
+
+export function reservationsWithConflicts(scope: Scope = ALL_UNITS) {
+  const rows = inScope(roomReservations, scope);
+  const live = rows.filter(
+    (r) => r.status === "approved" || r.status === "pending",
+  );
+
+  return rows
+    .map((reservation) => ({
+      reservation,
+      room: ROOMS_BY_ID.get(reservation.roomId)!,
+      requestedBy: PEOPLE_BY_ID.get(reservation.requestedById)!,
+      approvedBy: reservation.approvedById
+        ? PEOPLE_BY_ID.get(reservation.approvedById)
+        : null,
+      event: reservation.eventId ? EVENTS_BY_ID.get(reservation.eventId) : null,
+      /**
+       * No banco isto é impossível: a EXCLUDE constraint do AD-10 rejeita
+       * a sobreposição no momento da escrita. Aqui o protótipo mostra o
+       * conflito para desenhar a tela de resolução.
+       */
+      /**
+       * Quem "tem" o conflito é o pedido mais novo, não a reserva que já
+       * estava aprovada. Uma aprovada só conflita com outra aprovada —
+       * caso que o banco impede (AD-10) e que aqui seria um erro de dado.
+       */
+      conflictsWith: live.filter((other) => {
+        if (other.id === reservation.id) return false;
+        if (other.roomId !== reservation.roomId) return false;
+        if (!overlaps(reservation, other)) return false;
+        if (reservation.status === "pending") return true;
+        if (reservation.status === "approved") return other.status === "approved";
+        return false;
+      }),
+    }))
+    .sort((a, b) =>
+      a.reservation.startsAt.localeCompare(b.reservation.startsAt),
+    );
+}
+
+export function roomUsage(scope: Scope = ALL_UNITS) {
+  const rows = inScope(roomReservations, scope).filter(
+    (r) => r.status === "approved",
+  );
+  return inScope(rooms, scope).map((room) => {
+    const bookings = rows.filter((r) => r.roomId === room.id);
+    const minutes = bookings.reduce(
+      (s, r) =>
+        s +
+        (new Date(r.endsAt).getTime() - new Date(r.startsAt).getTime()) / 60_000,
+      0,
+    );
+    return {
+      room,
+      bookings: bookings.length,
+      hours: Math.round(minutes / 6) / 10,
+    };
+  });
+}
+
+/* ================================================================== */
+/* Voluntários — Módulo 07                                             */
+/* ================================================================== */
+
+export function volunteersWithLoad(scope: Scope = ALL_UNITS) {
+  const monthStart = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
+  const monthEnd = new Date(TODAY.getFullYear(), TODAY.getMonth() + 1, 0);
+  const slots = slotStatuses(ALL_UNITS);
+
+  const byPerson = new Map<string, VolunteerProfile[]>();
+  for (const profile of volunteerProfiles) {
+    const list = byPerson.get(profile.personId) ?? [];
+    list.push(profile);
+    byPerson.set(profile.personId, list);
+  }
+
+  return [...byPerson.entries()]
+    .map(([personId, profiles]) => {
+      const person = PEOPLE_BY_ID.get(personId)!;
+
+      const assignments = slots.flatMap((slot) =>
+        slot.assignments
+          .filter((a) => a.person.id === personId)
+          .map((a) => ({ ...a, slot })),
+      );
+      const thisMonth = assignments.filter((a) => {
+        const date = new Date(a.slot.event.startsAt);
+        return date >= monthStart && date <= monthEnd;
+      });
+
+      const blackouts = volunteerBlackouts.filter(
+        (b) => b.personId === personId,
+      );
+      const activeBlackout = blackouts.find(
+        (b) => toDate(b.startsAt) <= TODAY && toDate(b.endsAt) >= TODAY,
+      );
+      const maxPerMonth = Math.max(...profiles.map((p) => p.maxPerMonth));
+
+      return {
+        person,
+        profiles: profiles.map((p) => ({
+          profile: p,
+          ministry: MINISTRIES_BY_ID.get(p.ministryId)!,
+          positions: p.positionIds
+            .map((id) => POSITIONS_BY_ID.get(id)!)
+            .filter(Boolean),
+        })),
+        availability: volunteerAvailability.filter(
+          (a) => a.personId === personId,
+        ),
+        blackouts,
+        activeBlackout: activeBlackout ?? null,
+        assignedThisMonth: thisMonth.length,
+        confirmedThisMonth: thisMonth.filter((a) => a.status === "confirmed")
+          .length,
+        pending: assignments.filter((a) => a.status === "invited").length,
+        maxPerMonth,
+        /** Acima do teto que o próprio voluntário definiu */
+        overloaded: thisMonth.length > maxPerMonth,
+      };
+    })
+    .filter(({ person }) => !scope.unitId || person.unitId === scope.unitId)
+    .sort((a, b) => a.person.name.localeCompare(b.person.name, "pt-BR"));
+}
+
+/** Voluntários disponíveis mas sem nenhuma escala no mês. */
+export function idleVolunteers(scope: Scope = ALL_UNITS) {
+  return volunteersWithLoad(scope).filter(
+    (v) => v.assignedThisMonth === 0 && !v.activeBlackout,
+  );
 }

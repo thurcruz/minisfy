@@ -20,6 +20,7 @@ import {
   groupAttendanceSeries,
   groupsWithStats,
   newPeople,
+  registrationCount,
   upcomingBirthdays,
   upcomingEvents,
   visitorsThisMonth,
@@ -294,10 +295,10 @@ export default function DashboardPage() {
                       {dateTime(event.startsAt)}
                       {room && ` · ${room.name}`}
                     </p>
-                    {event.capacity && event.registrations > 0 && (
+                    {event.capacity && registrationCount(event.id) > 0 && (
                       <p className="mt-1 text-[12px] text-fg-secondary">
                         <span className="tnum font-medium">
-                          {num(event.registrations)}
+                          {num(registrationCount(event.id))}
                         </span>{" "}
                         de {num(event.capacity)} inscritos
                       </p>

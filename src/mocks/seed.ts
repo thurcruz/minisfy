@@ -14,7 +14,11 @@
 
 import type {
   ChurchEvent,
+  EmergencyContact,
+  EventRegistration,
   Family,
+  FamilyMember,
+  FamilyRole,
   FinancialAccount,
   FinancialCategory,
   GroupMeeting,
@@ -23,11 +27,18 @@ import type {
   Person,
   Position,
   Room,
+  RoomReservation,
   ScheduleAssignment,
   ScheduleSlot,
+  Service,
+  ServiceItem,
+  ServiceItemKind,
   SmallGroup,
   Transaction,
   Unit,
+  VolunteerAvailability,
+  VolunteerBlackout,
+  VolunteerProfile,
   VisitorJourney,
   VisitorStage,
 } from "./types";
@@ -194,6 +205,10 @@ const PEOPLE: P[] = [
   ["p-53", "Laura Martins Dias", "F", "2016-07-12", "member", "u-sede", "2016-07-12", "2016-07-12", "Centro", "f-03", null, []],
   ["p-54", "Miguel Ribeiro Castro", "M", "2019-02-25", "member", "u-jardim", "2019-02-25", "2019-02-25", "Jardim América", "f-05", null, []],
   ["p-55", "Sofia Gomes Teixeira", "F", "2017-11-30", "member", "u-jardim", "2017-11-30", "2017-11-30", "Jardim América", "f-07", null, []],
+  /* --- cônjuges que completam núcleos familiares --- */
+  ["p-73", "Daniela Nunes Pacheco", "F", "1992-02-08", "member", "u-sede", "2015-06-07", "2015-06-07", "Barão Geraldo", "f-04", "g-barao", ["min-recepcao"]],
+  ["p-74", "Téo Oliveira Nunes", "M", "2020-07-21", "member", "u-sede", "2020-07-21", "2020-07-21", "Barão Geraldo", "f-04", null, []],
+  ["p-75", "Joel Azevedo Moreira", "M", "1987-11-13", "member", "u-sede", "2015-10-11", "2015-10-11", "Cambuí", "f-08", "g-cambui", ["min-midia"]],
   /* --- adolescentes --- */
   ["p-64", "Ester Carvalho Rocha", "F", "2011-06-14", "member", "u-sede", "2011-06-14", "2011-06-14", "Cambuí", "f-01", null, ["min-jovens"]],
   ["p-65", "Benjamim Souza Lima", "M", "2010-03-22", "member", "u-sede", "2010-03-22", "2010-03-22", "Taquaral", "f-02", null, []],
@@ -352,19 +367,19 @@ function at(dayOffset: number, hhmm: string, durationMin: number) {
 }
 
 export const events: ChurchEvent[] = [
-  { id: "e-01", unitId: "u-sede", kind: "ensaio", title: "Ensaio do Louvor", ...at(1, "20:00", 120), roomId: "r-templo", capacity: null, registrations: 0, expectedAttendance: 12, actualAttendance: null },
-  { id: "e-02", unitId: "u-sede", kind: "culto", title: "Culto de Celebração", ...at(2, "19:30", 105), roomId: "r-templo", capacity: 400, registrations: 0, expectedAttendance: 280, actualAttendance: null },
-  { id: "e-03", unitId: "u-sede", kind: "culto", title: "Culto Dominical — Manhã", ...at(5, "10:00", 100), roomId: "r-templo", capacity: 400, registrations: 0, expectedAttendance: 310, actualAttendance: null },
-  { id: "e-04", unitId: "u-sede", kind: "culto", title: "Culto Dominical — Noite", ...at(5, "19:00", 100), roomId: "r-templo", capacity: 400, registrations: 0, expectedAttendance: 240, actualAttendance: null },
-  { id: "e-05", unitId: "u-jardim", kind: "culto", title: "Culto Jardim América", ...at(5, "19:00", 90), roomId: "r-jardim", capacity: 150, registrations: 0, expectedAttendance: 95, actualAttendance: null },
-  { id: "e-06", unitId: "u-sede", kind: "evento", title: "Encontro de Jovens — Imersão", ...at(9, "19:00", 180), roomId: "r-anexo", capacity: 80, registrations: 54, expectedAttendance: null, actualAttendance: null },
-  { id: "e-07", unitId: "u-sede", kind: "reuniao", title: "Reunião de Líderes de GC", ...at(7, "20:00", 90), roomId: "r-reuniao", capacity: 12, registrations: 0, expectedAttendance: 8, actualAttendance: null },
-  { id: "e-08", unitId: "u-sede", kind: "evento", title: "Almoço das Famílias", ...at(12, "12:00", 180), roomId: "r-anexo", capacity: 120, registrations: 38, expectedAttendance: null, actualAttendance: null },
-  { id: "e-09", unitId: "u-sede", kind: "curso", title: "Escola Bíblica — Turma Fundamentos", ...at(5, "09:00", 60), roomId: "r-anexo", capacity: 40, registrations: 27, expectedAttendance: null, actualAttendance: null },
+  { id: "e-01", unitId: "u-sede", kind: "ensaio", title: "Ensaio do Louvor", ...at(1, "20:00", 120), roomId: "r-templo", capacity: null, expectedAttendance: 12, actualAttendance: null },
+  { id: "e-02", unitId: "u-sede", kind: "culto", title: "Culto de Celebração", ...at(2, "19:30", 105), roomId: "r-templo", capacity: 400, expectedAttendance: 280, actualAttendance: null },
+  { id: "e-03", unitId: "u-sede", kind: "culto", title: "Culto Dominical — Manhã", ...at(5, "10:00", 100), roomId: "r-templo", capacity: 400, expectedAttendance: 310, actualAttendance: null },
+  { id: "e-04", unitId: "u-sede", kind: "culto", title: "Culto Dominical — Noite", ...at(5, "19:00", 100), roomId: "r-templo", capacity: 400, expectedAttendance: 240, actualAttendance: null },
+  { id: "e-05", unitId: "u-jardim", kind: "culto", title: "Culto Jardim América", ...at(5, "19:00", 90), roomId: "r-jardim", capacity: 150, expectedAttendance: 95, actualAttendance: null },
+  { id: "e-06", unitId: "u-sede", kind: "evento", title: "Encontro de Jovens — Imersão", ...at(9, "19:00", 180), roomId: "r-anexo", capacity: 30, expectedAttendance: null, actualAttendance: null },
+  { id: "e-07", unitId: "u-sede", kind: "reuniao", title: "Reunião de Líderes de GC", ...at(7, "20:00", 90), roomId: "r-reuniao", capacity: 12, expectedAttendance: 8, actualAttendance: null },
+  { id: "e-08", unitId: "u-sede", kind: "evento", title: "Almoço das Famílias", ...at(12, "12:00", 180), roomId: "r-anexo", capacity: 60, expectedAttendance: null, actualAttendance: null },
+  { id: "e-09", unitId: "u-sede", kind: "curso", title: "Escola Bíblica — Turma Fundamentos", ...at(5, "09:00", 60), roomId: "r-anexo", capacity: 40, expectedAttendance: null, actualAttendance: null },
   /* passado — alimenta o histórico de frequência */
-  { id: "e-p1", unitId: "u-sede", kind: "culto", title: "Culto Dominical — Manhã", ...at(-2, "10:00", 100), roomId: "r-templo", capacity: 400, registrations: 0, expectedAttendance: 300, actualAttendance: 296 },
-  { id: "e-p2", unitId: "u-sede", kind: "culto", title: "Culto Dominical — Noite", ...at(-2, "19:00", 100), roomId: "r-templo", capacity: 400, registrations: 0, expectedAttendance: 240, actualAttendance: 231 },
-  { id: "e-p3", unitId: "u-sede", kind: "culto", title: "Culto de Celebração", ...at(-5, "19:30", 105), roomId: "r-templo", capacity: 400, registrations: 0, expectedAttendance: 280, actualAttendance: 268 },
+  { id: "e-p1", unitId: "u-sede", kind: "culto", title: "Culto Dominical — Manhã", ...at(-2, "10:00", 100), roomId: "r-templo", capacity: 400, expectedAttendance: 300, actualAttendance: 296 },
+  { id: "e-p2", unitId: "u-sede", kind: "culto", title: "Culto Dominical — Noite", ...at(-2, "19:00", 100), roomId: "r-templo", capacity: 400, expectedAttendance: 240, actualAttendance: 231 },
+  { id: "e-p3", unitId: "u-sede", kind: "culto", title: "Culto de Celebração", ...at(-5, "19:30", 105), roomId: "r-templo", capacity: 400, expectedAttendance: 280, actualAttendance: 268 },
 ];
 
 /* ================================================================== */
@@ -548,3 +563,297 @@ function buildTransactions(): Transaction[] {
 }
 
 export const transactions: Transaction[] = buildTransactions();
+
+/* ================================================================== */
+/* Famílias — composição e contatos de emergência                      */
+/* ================================================================== */
+
+type FM = [familyId: string, personId: string, role: FamilyRole, guardian: boolean];
+
+const FAMILY_MEMBERS: FM[] = [
+  ["f-01", "p-02", "head", true],
+  ["f-01", "p-01", "spouse", true],
+  ["f-01", "p-51", "child", false],
+  ["f-01", "p-52", "child", false],
+  ["f-01", "p-64", "child", false],
+  ["f-02", "p-03", "head", true],
+  ["f-02", "p-65", "child", false],
+  ["f-03", "p-04", "head", true],
+  ["f-03", "p-05", "spouse", true],
+  ["f-03", "p-53", "child", false],
+  ["f-04", "p-06", "head", true],
+  ["f-04", "p-73", "spouse", true],
+  ["f-04", "p-74", "child", false],
+  ["f-05", "p-07", "head", true],
+  ["f-05", "p-54", "child", false],
+  ["f-06", "p-08", "head", true],
+  ["f-06", "p-67", "child", false],
+  ["f-07", "p-09", "head", true],
+  ["f-07", "p-55", "child", false],
+  ["f-07", "p-66", "child", false],
+  ["f-08", "p-11", "head", true],
+  ["f-08", "p-75", "spouse", true],
+];
+
+export const familyMembers: FamilyMember[] = FAMILY_MEMBERS.map(
+  ([familyId, personId, role, isGuardian], i) => ({
+    id: `fm-${i + 1}`,
+    familyId,
+    personId,
+    role,
+    isGuardian,
+  }),
+);
+
+export const emergencyContacts: EmergencyContact[] = [
+  { id: "ec-1", personId: "p-51", name: "Lucas Almeida Rocha", phone: "19970137911", relationship: "Pai" },
+  { id: "ec-2", personId: "p-52", name: "Ana Beatriz Carvalho", phone: "19970000000", relationship: "Mãe" },
+  { id: "ec-3", personId: "p-53", name: "Juliana Ferreira Dias", phone: "19970551644", relationship: "Mãe" },
+  { id: "ec-4", personId: "p-54", name: "Camila Ribeiro Castro", phone: "19970827822", relationship: "Mãe" },
+  { id: "ec-5", personId: "p-55", name: "Patrícia Gomes Teixeira", phone: "19971103733", relationship: "Mãe" },
+  { id: "ec-6", personId: "p-74", name: "Rafael Oliveira Nunes", phone: "19970689555", relationship: "Pai" },
+];
+
+/* ================================================================== */
+/* Cultos — ordem do culto                                             */
+/* ================================================================== */
+
+export const services: Service[] = [
+  {
+    id: "sv-01", unitId: "u-sede", eventId: "e-03", serviceType: "Celebração dominical",
+    theme: "A fidelidade que atravessa o deserto", scripture: "Êxodo 16.1–18",
+    preacherId: "p-40", hostId: "p-18",
+    notes: "Santa Ceia no último domingo do mês.",
+  },
+  {
+    id: "sv-02", unitId: "u-sede", eventId: "e-04", serviceType: "Culto da noite",
+    theme: "Gratidão como estilo de vida", scripture: "Salmos 100",
+    preacherId: "p-46", hostId: "p-22", notes: null,
+  },
+  {
+    id: "sv-03", unitId: "u-sede", eventId: "e-02", serviceType: "Culto de celebração",
+    theme: "Oração que persiste", scripture: "Lucas 18.1–8",
+    preacherId: "p-18", hostId: "p-34", notes: null,
+  },
+  {
+    id: "sv-04", unitId: "u-jardim", eventId: "e-05", serviceType: "Culto da congregação",
+    theme: "Servir é o caminho", scripture: "Marcos 10.42–45",
+    preacherId: "p-16", hostId: "p-42", notes: null,
+  },
+];
+
+type SI = [
+  serviceId: string,
+  title: string,
+  kind: ServiceItemKind,
+  minutes: number,
+  responsible: string | null,
+];
+
+const SERVICE_ITEMS: SI[] = [
+  ["sv-01", "Acolhida e boas-vindas", "welcome", 5, "p-18"],
+  ["sv-01", "Bloco de louvor — 3 canções", "worship", 20, "p-11"],
+  ["sv-01", "Oração de intercessão", "prayer", 7, "p-25"],
+  ["sv-01", "Avisos da semana", "notice", 5, "p-18"],
+  ["sv-01", "Dízimos e ofertas", "offering", 5, "p-04"],
+  ["sv-01", "Mensagem", "word", 35, "p-40"],
+  ["sv-01", "Santa Ceia", "ordinance", 15, "p-40"],
+  ["sv-01", "Oração final e bênção", "prayer", 5, "p-40"],
+  ["sv-02", "Acolhida", "welcome", 5, "p-22"],
+  ["sv-02", "Bloco de louvor", "worship", 22, "p-43"],
+  ["sv-02", "Momento de testemunho", "notice", 8, "p-22"],
+  ["sv-02", "Dízimos e ofertas", "offering", 5, "p-38"],
+  ["sv-02", "Mensagem", "word", 35, "p-46"],
+  ["sv-02", "Oração final", "prayer", 5, "p-46"],
+  ["sv-03", "Acolhida", "welcome", 5, "p-34"],
+  ["sv-03", "Bloco de louvor", "worship", 18, "p-06"],
+  ["sv-03", "Avisos", "notice", 5, "p-34"],
+  ["sv-03", "Dízimos e ofertas", "offering", 5, "p-15"],
+  ["sv-03", "Mensagem", "word", 40, "p-18"],
+  ["sv-03", "Ministração e oração", "prayer", 12, "p-18"],
+  ["sv-04", "Acolhida", "welcome", 5, "p-42"],
+  ["sv-04", "Bloco de louvor", "worship", 20, "p-07"],
+  ["sv-04", "Avisos", "notice", 5, "p-42"],
+  ["sv-04", "Dízimos e ofertas", "offering", 5, "p-47"],
+  ["sv-04", "Mensagem", "word", 35, "p-16"],
+  ["sv-04", "Oração final", "prayer", 5, "p-16"],
+];
+
+export const serviceItems: ServiceItem[] = (() => {
+  const counters = new Map<string, number>();
+  return SERVICE_ITEMS.map(([serviceId, title, kind, durationMinutes, responsibleId], i) => {
+    const position = (counters.get(serviceId) ?? 0) + 1;
+    counters.set(serviceId, position);
+    return {
+      id: `si-${i + 1}`,
+      serviceId,
+      position,
+      title,
+      kind,
+      durationMinutes,
+      responsibleId,
+      notes: null,
+    };
+  });
+})();
+
+/* ================================================================== */
+/* Inscrições em eventos                                               */
+/* ================================================================== */
+
+/** Idade na data de referência do protótipo. */
+function ageAt(birthDate: string): number {
+  const [y, m, d] = birthDate.split("-").map(Number);
+  let years = TODAY.getFullYear() - y!;
+  const monthDiff = TODAY.getMonth() - (m! - 1);
+  if (monthDiff < 0 || (monthDiff === 0 && TODAY.getDate() < d!)) years--;
+  return years;
+}
+
+/**
+ * Seleção determinística e SEM repetição. O passo é coprimo com o
+ * tamanho da lista, então percorre todo o grupo antes de voltar ao
+ * início — sem isto o gerador repetia pessoas e a lista encolhia.
+ */
+function pickPeople(count: number, offset: number, pool: Person[]) {
+  if (pool.length === 0) return [];
+  let stride = 7;
+  while (stride > 1 && pool.length % stride === 0) stride--;
+  const take = Math.min(count, pool.length);
+  return Array.from(
+    { length: take },
+    (_, i) => pool[(offset + i * stride) % pool.length]!,
+  );
+}
+
+function buildRegistrations(): EventRegistration[] {
+  const eligible = (min: number, max: number) =>
+    people.filter(
+      (p) =>
+        p.status !== "visitor" &&
+        ageAt(p.birthDate) >= min &&
+        ageAt(p.birthDate) <= max,
+    );
+
+  const specs = [
+    // Encontro de Jovens: adolescentes e jovens adultos
+    { eventId: "e-06", pool: eligible(14, 35), waitlist: 3, offset: 2, priceCents: 5000 },
+    // Almoço das Famílias: todo mundo, inclusive crianças
+    { eventId: "e-08", pool: eligible(0, 120), waitlist: 0, offset: 11, priceCents: 0, limit: 38 },
+    // Escola Bíblica: a partir de 15 anos
+    { eventId: "e-09", pool: eligible(15, 120), waitlist: 0, offset: 23, priceCents: 0, limit: 27 },
+  ];
+
+  const out: EventRegistration[] = [];
+  let seq = 0;
+
+  for (const spec of specs) {
+    const limit = "limit" in spec && spec.limit ? spec.limit : spec.pool.length;
+    const chosen = pickPeople(limit + spec.waitlist, spec.offset, spec.pool);
+    const confirmedCount = Math.max(0, chosen.length - spec.waitlist);
+
+    chosen.forEach((person, i) => {
+      const day = new Date(TODAY);
+      day.setDate(day.getDate() - (28 - (i % 25)));
+      out.push({
+        id: `er-${String(++seq).padStart(4, "0")}`,
+        eventId: spec.eventId,
+        personId: person.id,
+        status: i < confirmedCount ? "confirmed" : "waitlist",
+        registeredAt: day.toISOString(),
+        amountCents: spec.priceCents,
+        paid: spec.priceCents === 0 ? true : i % 4 !== 0,
+      });
+    });
+  }
+  return out;
+}
+
+export const eventRegistrations: EventRegistration[] = buildRegistrations();
+
+/* ================================================================== */
+/* Reservas de espaço                                                  */
+/* ================================================================== */
+
+export const roomReservations: RoomReservation[] = [
+  { id: "rr-01", unitId: "u-sede", roomId: "r-templo", eventId: "e-01", title: "Ensaio do Louvor", ...at(1, "20:00", 120), status: "approved", requestedById: "p-06", approvedById: "p-04", notes: null },
+  { id: "rr-02", unitId: "u-sede", roomId: "r-templo", eventId: "e-02", title: "Culto de Celebração", ...at(2, "19:30", 105), status: "approved", requestedById: "p-18", approvedById: "p-04", notes: null },
+  { id: "rr-03", unitId: "u-sede", roomId: "r-templo", eventId: "e-03", title: "Culto Dominical — Manhã", ...at(5, "10:00", 100), status: "approved", requestedById: "p-18", approvedById: "p-04", notes: null },
+  { id: "rr-04", unitId: "u-sede", roomId: "r-templo", eventId: "e-04", title: "Culto Dominical — Noite", ...at(5, "19:00", 100), status: "approved", requestedById: "p-22", approvedById: "p-04", notes: null },
+  { id: "rr-05", unitId: "u-sede", roomId: "r-anexo", eventId: "e-06", title: "Encontro de Jovens — Imersão", ...at(9, "19:00", 180), status: "approved", requestedById: "p-12", approvedById: "p-04", notes: "Montar som próprio." },
+  { id: "rr-06", unitId: "u-sede", roomId: "r-anexo", eventId: "e-08", title: "Almoço das Famílias", ...at(12, "12:00", 180), status: "approved", requestedById: "p-01", approvedById: "p-04", notes: null },
+  { id: "rr-07", unitId: "u-sede", roomId: "r-anexo", eventId: "e-09", title: "Escola Bíblica — Fundamentos", ...at(5, "09:00", 60), status: "approved", requestedById: "p-34", approvedById: "p-04", notes: null },
+  { id: "rr-08", unitId: "u-sede", roomId: "r-reuniao", eventId: "e-07", title: "Reunião de Líderes de GC", ...at(7, "20:00", 90), status: "approved", requestedById: "p-04", approvedById: "p-04", notes: null },
+  { id: "rr-09", unitId: "u-jardim", roomId: "r-jardim", eventId: "e-05", title: "Culto Jardim América", ...at(5, "19:00", 90), status: "approved", requestedById: "p-16", approvedById: "p-16", notes: null },
+  { id: "rr-10", unitId: "u-sede", roomId: "r-kids1", eventId: null, title: "Treinamento do Infantil", ...at(8, "14:00", 120), status: "pending", requestedById: "p-05", approvedById: null, notes: "Precisa de projetor." },
+  { id: "rr-11", unitId: "u-sede", roomId: "r-kids2", eventId: null, title: "Reunião de pais", ...at(6, "16:00", 90), status: "pending", requestedById: "p-37", approvedById: null, notes: null },
+  /* Pedido que colide com o ensaio do louvor (rr-01): o banco rejeitaria
+     via EXCLUDE constraint. Aqui aparece como conflito a resolver. */
+  { id: "rr-12", unitId: "u-sede", roomId: "r-templo", eventId: null, title: "Gravação de videoclipe", ...at(1, "21:00", 120), status: "pending", requestedById: "p-14", approvedById: null, notes: "Equipe de mídia." },
+  { id: "rr-13", unitId: "u-sede", roomId: "r-anexo", eventId: null, title: "Bazar beneficente", ...at(14, "09:00", 360), status: "rejected", requestedById: "p-23", approvedById: "p-04", notes: "Conflita com a manutenção do piso." },
+];
+
+/* ================================================================== */
+/* Voluntários                                                         */
+/* ================================================================== */
+
+function buildVolunteerProfiles(): VolunteerProfile[] {
+  const out: VolunteerProfile[] = [];
+  let seq = 0;
+  for (const person of people) {
+    for (const ministryId of person.ministryIds) {
+      const ministryPositions = positions
+        .filter((p) => p.ministryId === ministryId)
+        .map((p) => p.id);
+      const take = ministryPositions.length
+        ? ministryPositions.filter((_, i) => (seq + i) % 3 !== 2).slice(0, 2)
+        : [];
+      out.push({
+        id: `vp-${String(++seq).padStart(3, "0")}`,
+        personId: person.id,
+        ministryId,
+        positionIds: take.length ? take : ministryPositions.slice(0, 1),
+        maxPerMonth: [2, 2, 3, 4][seq % 4]!,
+        since: person.memberSince,
+      });
+    }
+  }
+  return out;
+}
+
+export const volunteerProfiles: VolunteerProfile[] = buildVolunteerProfiles();
+
+function buildAvailability(): VolunteerAvailability[] {
+  const out: VolunteerAvailability[] = [];
+  let seq = 0;
+  const volunteers = [...new Set(volunteerProfiles.map((v) => v.personId))];
+  volunteers.forEach((personId, i) => {
+    // Domingo quase todos; quarta depende da agenda pessoal
+    out.push({
+      id: `va-${++seq}`,
+      personId,
+      weekday: 0,
+      startTime: i % 5 === 0 ? "18:00" : "08:00",
+      endTime: "21:30",
+    });
+    if (i % 3 !== 1) {
+      out.push({
+        id: `va-${++seq}`,
+        personId,
+        weekday: 3,
+        startTime: "19:00",
+        endTime: "22:00",
+      });
+    }
+  });
+  return out;
+}
+
+export const volunteerAvailability: VolunteerAvailability[] = buildAvailability();
+
+export const volunteerBlackouts: VolunteerBlackout[] = [
+  { id: "vb-1", personId: "p-20", startsAt: d("2026-11-20"), endsAt: d("2026-12-08"), reason: "Viagem a trabalho" },
+  { id: "vb-2", personId: "p-24", startsAt: d("2026-11-28"), endsAt: d("2026-11-30"), reason: "Casamento na família" },
+  { id: "vb-3", personId: "p-43", startsAt: d("2026-12-20"), endsAt: d("2027-01-05"), reason: "Férias" },
+  { id: "vb-4", personId: "p-29", startsAt: d("2026-11-25"), endsAt: d("2026-11-26"), reason: "Pós-operatório" },
+];

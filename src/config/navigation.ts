@@ -58,7 +58,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: "Membros", href: "/membros", icon: Users, status: "ready" },
       { label: "Visitantes", href: "/visitantes", icon: UserPlus, status: "ready" },
-      { label: "Famílias", href: "/familias", icon: Contact, status: "planned", phase: "Fase 2" },
+      { label: "Famílias", href: "/familias", icon: Contact, status: "ready" },
       { label: "Discipulado", href: "/discipulado", icon: HeartHandshake, status: "planned", phase: "Fase 7" },
     ],
   },
@@ -68,16 +68,16 @@ export const navigation: NavGroup[] = [
       { label: "Pequenos grupos", href: "/grupos", icon: UsersRound, status: "ready" },
       { label: "Ministérios", href: "/ministerios", icon: Church, status: "ready" },
       { label: "Escalas", href: "/escalas", icon: CalendarRange, status: "ready" },
-      { label: "Voluntários", href: "/voluntarios", icon: HandHeart, status: "planned", phase: "Fase 5" },
+      { label: "Voluntários", href: "/voluntarios", icon: HandHeart, status: "ready" },
     ],
   },
   {
     label: "Programação",
     items: [
       { label: "Agenda", href: "/agenda", icon: CalendarDays, status: "ready" },
-      { label: "Cultos", href: "/cultos", icon: Church, status: "planned", phase: "Fase 4" },
-      { label: "Eventos", href: "/eventos", icon: Sparkles, status: "planned", phase: "Fase 4" },
-      { label: "Reservas", href: "/reservas", icon: Building2, status: "planned", phase: "Fase 4" },
+      { label: "Cultos", href: "/cultos", icon: Church, status: "ready" },
+      { label: "Eventos", href: "/eventos", icon: Sparkles, status: "ready" },
+      { label: "Reservas", href: "/reservas", icon: Building2, status: "ready" },
     ],
   },
   {
