@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, Moon, Search, Sun } from "lucide-react";
+import { Menu, Moon, RotateCcw, Search, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { MobileSidebar, SidebarContent } from "./sidebar";
 import { Button } from "@/ui/button";
 import { Badge } from "@/ui/primitives";
+import { useStore } from "@/store/data-store";
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -25,6 +26,34 @@ function ThemeToggle() {
       <Moon className="dark:hidden" />
       <Sun className="hidden dark:block" />
     </Button>
+  );
+}
+
+/**
+ * Deixa explícito que os dados são fictícios e, quando algum
+ * formulário salvou algo, que a alteração vive só neste navegador.
+ */
+function PrototypeBadge() {
+  const { dirty, reset } = useStore();
+
+  if (dirty) {
+    return (
+      <button
+        type="button"
+        onClick={reset}
+        title="Descartar as alterações e voltar aos dados originais"
+        className="hidden items-center gap-1.5 rounded-full border border-warning/40 bg-warning-bg px-2.5 py-1 text-xs font-medium text-warning transition-colors hover:bg-warning/15 md:inline-flex dark:bg-warning/10"
+      >
+        <RotateCcw className="size-3" />
+        Alterado neste navegador · restaurar
+      </button>
+    );
+  }
+
+  return (
+    <Badge tone="outline" className="hidden md:inline-flex">
+      Protótipo · dados fictícios
+    </Badge>
   );
 }
 
@@ -63,9 +92,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </label>
 
           <div className="ml-auto flex items-center gap-2">
-            <Badge tone="outline" className="hidden md:inline-flex">
-              Protótipo · dados fictícios
-            </Badge>
+            <PrototypeBadge />
             <ThemeToggle />
           </div>
         </header>

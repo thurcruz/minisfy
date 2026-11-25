@@ -10,34 +10,8 @@
  */
 
 import { age, toDate } from "@/lib/format";
-import {
-  emergencyContacts,
-  eventRegistrations,
-  events,
-  familyMembers,
-  families,
-  financialAccounts,
-  financialCategories,
-  groupMeetings,
-  ministries,
-  people,
-  positions,
-  roomReservations,
-  rooms,
-  scheduleAssignments,
-  scheduleSlots,
-  serviceItems,
-  services,
-  smallGroups,
-  TODAY,
-  transactions,
-  units,
-  visitorJourneys,
-  visitorStages,
-  volunteerAvailability,
-  volunteerBlackouts,
-  volunteerProfiles,
-} from "./seed";
+import * as seed from "./seed";
+import { TODAY } from "./seed";
 import type {
   FamilyRole,
   Person,
@@ -52,8 +26,117 @@ export { organization, units, TODAY, visitorStages } from "./seed";
 export type Scope = { unitId: string | null };
 export const ALL_UNITS: Scope = { unitId: null };
 
-const inScope = <T extends { unitId: string }>(rows: T[], scope: Scope) =>
-  scope.unitId ? rows.filter((r) => r.unitId === scope.unitId) : rows;
+export interface SlotStatus {
+  slotId: string;
+  event: (typeof seed.events)[number];
+  position: (typeof seed.positions)[number];
+  ministry: (typeof seed.ministries)[number];
+  required: number;
+  confirmed: number;
+  invited: number;
+  declined: number;
+  /** Vagas sem ninguém confirmado (pode haver convite pendente cobrindo) */
+  missing: number;
+  /** Vagas sem ninguém — nem confirmado, nem convidado. Precisa convidar. */
+  open: number;
+  assignments: Array<{
+    id: string;
+    person: Person;
+    status: "invited" | "confirmed" | "declined";
+  }>;
+}
+
+export interface ActionItem {
+  id: string;
+  label: string;
+  detail: string;
+  href: string;
+  severity: "high" | "medium" | "low";
+  count: number;
+}
+
+export interface TimelineEntry {
+  id: string;
+  date: string;
+  label: string;
+  detail: string | null;
+  kind: "membership" | "group" | "ministry" | "visit" | "record";
+}
+
+/**
+ * Conjunto de dados sobre o qual as consultas rodam.
+ *
+ * O protótipo tem duas instâncias: o seed imutável (usado nas páginas
+ * renderizadas no servidor) e o dataset do store do navegador, que
+ * recebe o que os formulários salvam. Quando o Supabase entrar, some
+ * o store e sobra uma consulta ao banco.
+ */
+export interface Dataset {
+  units: typeof seed.units;
+  people: typeof seed.people;
+  families: typeof seed.families;
+  familyMembers: typeof seed.familyMembers;
+  emergencyContacts: typeof seed.emergencyContacts;
+  visitorJourneys: typeof seed.visitorJourneys;
+  visitorStages: typeof seed.visitorStages;
+  smallGroups: typeof seed.smallGroups;
+  groupMeetings: typeof seed.groupMeetings;
+  ministries: typeof seed.ministries;
+  positions: typeof seed.positions;
+  scheduleSlots: typeof seed.scheduleSlots;
+  scheduleAssignments: typeof seed.scheduleAssignments;
+  events: typeof seed.events;
+  eventRegistrations: typeof seed.eventRegistrations;
+  rooms: typeof seed.rooms;
+  roomReservations: typeof seed.roomReservations;
+  services: typeof seed.services;
+  serviceItems: typeof seed.serviceItems;
+  financialAccounts: typeof seed.financialAccounts;
+  financialCategories: typeof seed.financialCategories;
+  transactions: typeof seed.transactions;
+  volunteerProfiles: typeof seed.volunteerProfiles;
+  volunteerAvailability: typeof seed.volunteerAvailability;
+  volunteerBlackouts: typeof seed.volunteerBlackouts;
+}
+
+export const SEED_DATASET: Dataset = {
+  units: seed.units,
+  people: seed.people,
+  families: seed.families,
+  familyMembers: seed.familyMembers,
+  emergencyContacts: seed.emergencyContacts,
+  visitorJourneys: seed.visitorJourneys,
+  visitorStages: seed.visitorStages,
+  smallGroups: seed.smallGroups,
+  groupMeetings: seed.groupMeetings,
+  ministries: seed.ministries,
+  positions: seed.positions,
+  scheduleSlots: seed.scheduleSlots,
+  scheduleAssignments: seed.scheduleAssignments,
+  events: seed.events,
+  eventRegistrations: seed.eventRegistrations,
+  rooms: seed.rooms,
+  roomReservations: seed.roomReservations,
+  services: seed.services,
+  serviceItems: seed.serviceItems,
+  financialAccounts: seed.financialAccounts,
+  financialCategories: seed.financialCategories,
+  transactions: seed.transactions,
+  volunteerProfiles: seed.volunteerProfiles,
+  volunteerAvailability: seed.volunteerAvailability,
+  volunteerBlackouts: seed.volunteerBlackouts,
+};
+
+export function createQueries(data: Dataset) {
+const {
+  units, people, families, familyMembers, emergencyContacts,
+  visitorJourneys, visitorStages, smallGroups, groupMeetings,
+  ministries, positions, scheduleSlots, scheduleAssignments,
+  events, eventRegistrations, rooms, roomReservations,
+  services, serviceItems, financialAccounts, financialCategories,
+  transactions, volunteerProfiles, volunteerAvailability,
+  volunteerBlackouts,
+} = data;
 
 const byId = <T extends { id: string }>(rows: T[]) =>
   new Map(rows.map((r) => [r.id, r]));
@@ -68,27 +151,30 @@ const ACCOUNTS_BY_ID = byId(financialAccounts);
 const GROUPS_BY_ID = byId(smallGroups);
 const UNITS_BY_ID = byId(units);
 
-export const getPerson = (id: string) => PEOPLE_BY_ID.get(id);
-export const getUnit = (id: string) => UNITS_BY_ID.get(id);
-export const getGroup = (id: string) => GROUPS_BY_ID.get(id);
-export const getMinistry = (id: string) => MINISTRIES_BY_ID.get(id);
-export const getEvent = (id: string) => EVENTS_BY_ID.get(id);
-export const getRoom = (id: string) => ROOMS_BY_ID.get(id);
-export const getCategory = (id: string) => CATEGORIES_BY_ID.get(id);
-export const getAccount = (id: string) => ACCOUNTS_BY_ID.get(id);
+const inScope = <T extends { unitId: string }>(rows: T[], scope: Scope) =>
+  scope.unitId ? rows.filter((r) => r.unitId === scope.unitId) : rows;
+
+const getPerson = (id: string) => PEOPLE_BY_ID.get(id);
+const getUnit = (id: string) => UNITS_BY_ID.get(id);
+const getGroup = (id: string) => GROUPS_BY_ID.get(id);
+const getMinistry = (id: string) => MINISTRIES_BY_ID.get(id);
+const getEvent = (id: string) => EVENTS_BY_ID.get(id);
+const getRoom = (id: string) => ROOMS_BY_ID.get(id);
+const getCategory = (id: string) => CATEGORIES_BY_ID.get(id);
+const getAccount = (id: string) => ACCOUNTS_BY_ID.get(id);
 
 /* ================================================================== */
 /* Pessoas                                                             */
 /* ================================================================== */
 
 /** Membros e congregados ativos — exclui visitantes e inativos. */
-export function activeCongregation(scope: Scope = ALL_UNITS): Person[] {
+function activeCongregation(scope: Scope = ALL_UNITS): Person[] {
   return inScope(people, scope).filter(
     (p) => p.status === "member" || p.status === "regular",
   );
 }
 
-export function listPeople(
+function listPeople(
   scope: Scope = ALL_UNITS,
   filters: {
     search?: string;
@@ -120,7 +206,7 @@ export function listPeople(
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
 
-export function countByStatus(scope: Scope = ALL_UNITS) {
+function countByStatus(scope: Scope = ALL_UNITS) {
   const rows = inScope(people, scope);
   return {
     member: rows.filter((p) => p.status === "member").length,
@@ -132,7 +218,7 @@ export function countByStatus(scope: Scope = ALL_UNITS) {
 }
 
 /** Aniversariantes dentro da janela de dias à frente (inclui hoje). */
-export function upcomingBirthdays(scope: Scope = ALL_UNITS, days = 14) {
+function upcomingBirthdays(scope: Scope = ALL_UNITS, days = 14) {
   const rows = inScope(people, scope).filter((p) => p.status !== "inactive");
   const out: Array<{ person: Person; date: Date; turning: number }> = [];
 
@@ -159,7 +245,7 @@ export function upcomingBirthdays(scope: Scope = ALL_UNITS, days = 14) {
 }
 
 /** Novos cadastros nos últimos N dias. */
-export function newPeople(scope: Scope = ALL_UNITS, days = 30): Person[] {
+function newPeople(scope: Scope = ALL_UNITS, days = 30): Person[] {
   const cutoff = new Date(TODAY.getTime() - days * 86_400_000);
   return inScope(people, scope)
     .filter((p) => toDate(p.createdAt) >= cutoff)
@@ -167,7 +253,7 @@ export function newPeople(scope: Scope = ALL_UNITS, days = 30): Person[] {
 }
 
 /** Crescimento mês a mês da congregação ativa, pelos últimos N meses. */
-export function membershipGrowth(scope: Scope = ALL_UNITS, months = 12) {
+function membershipGrowth(scope: Scope = ALL_UNITS, months = 12) {
   const rows = inScope(people, scope).filter((p) => p.status !== "visitor");
   const series: Array<{ label: string; month: Date; total: number }> = [];
 
@@ -185,7 +271,7 @@ export function membershipGrowth(scope: Scope = ALL_UNITS, months = 12) {
   return series;
 }
 
-export function ageDistribution(scope: Scope = ALL_UNITS) {
+function ageDistribution(scope: Scope = ALL_UNITS) {
   const rows = activeCongregation(scope);
   const buckets = [
     { label: "0–11", min: 0, max: 11 },
@@ -208,7 +294,7 @@ export function ageDistribution(scope: Scope = ALL_UNITS) {
 /* Visitantes                                                          */
 /* ================================================================== */
 
-export function visitorBoard(scope: Scope = ALL_UNITS) {
+function visitorBoard(scope: Scope = ALL_UNITS) {
   return visitorStages
     .slice()
     .sort((a, b) => a.position - b.position)
@@ -231,7 +317,7 @@ export function visitorBoard(scope: Scope = ALL_UNITS) {
 }
 
 /** Visitantes com tarefa de contato vencida ou para hoje. */
-export function overdueFollowups(scope: Scope = ALL_UNITS) {
+function overdueFollowups(scope: Scope = ALL_UNITS) {
   const today = startOfDay(TODAY);
   return visitorJourneys
     .filter((j) => j.nextActionAt !== null)
@@ -248,7 +334,7 @@ export function overdueFollowups(scope: Scope = ALL_UNITS) {
     .sort((a, b) => a.due.getTime() - b.due.getTime());
 }
 
-export function visitorsThisMonth(scope: Scope = ALL_UNITS) {
+function visitorsThisMonth(scope: Scope = ALL_UNITS) {
   const start = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
   return visitorJourneys.filter((j) => {
     const person = PEOPLE_BY_ID.get(j.personId)!;
@@ -261,7 +347,7 @@ export function visitorsThisMonth(scope: Scope = ALL_UNITS) {
 /* Pequenos grupos                                                     */
 /* ================================================================== */
 
-export function groupsWithStats(scope: Scope = ALL_UNITS) {
+function groupsWithStats(scope: Scope = ALL_UNITS) {
   return inScope(smallGroups, scope).map((group) => {
     const meetings = groupMeetings
       .filter((m) => m.groupId === group.id && m.heldAt)
@@ -297,7 +383,7 @@ export function groupsWithStats(scope: Scope = ALL_UNITS) {
   });
 }
 
-export function groupAttendanceSeries(scope: Scope = ALL_UNITS, weeks = 8) {
+function groupAttendanceSeries(scope: Scope = ALL_UNITS, weeks = 8) {
   const groupIds = new Set(inScope(smallGroups, scope).map((g) => g.id));
   const buckets = new Map<string, { label: string; total: number; date: Date }>();
 
@@ -327,27 +413,8 @@ export function groupAttendanceSeries(scope: Scope = ALL_UNITS, weeks = 8) {
 /* Escalas                                                             */
 /* ================================================================== */
 
-export interface SlotStatus {
-  slotId: string;
-  event: (typeof events)[number];
-  position: (typeof positions)[number];
-  ministry: (typeof ministries)[number];
-  required: number;
-  confirmed: number;
-  invited: number;
-  declined: number;
-  /** Vagas sem ninguém confirmado (pode haver convite pendente cobrindo) */
-  missing: number;
-  /** Vagas sem ninguém — nem confirmado, nem convidado. Precisa convidar. */
-  open: number;
-  assignments: Array<{
-    id: string;
-    person: Person;
-    status: "invited" | "confirmed" | "declined";
-  }>;
-}
 
-export function slotStatuses(scope: Scope = ALL_UNITS): SlotStatus[] {
+function slotStatuses(scope: Scope = ALL_UNITS): SlotStatus[] {
   return scheduleSlots
     .map((slot) => {
       const event = EVENTS_BY_ID.get(slot.eventId)!;
@@ -384,7 +451,7 @@ export function slotStatuses(scope: Scope = ALL_UNITS): SlotStatus[] {
 }
 
 /** Eventos futuros cuja escala ainda não está completa. */
-export function incompleteSchedules(scope: Scope = ALL_UNITS) {
+function incompleteSchedules(scope: Scope = ALL_UNITS) {
   const slots = slotStatuses(scope).filter(
     (s) => new Date(s.event.startsAt) >= TODAY,
   );
@@ -419,7 +486,7 @@ export function incompleteSchedules(scope: Scope = ALL_UNITS) {
     .sort((a, b) => a.event.startsAt.localeCompare(b.event.startsAt));
 }
 
-export function pendingConfirmations(scope: Scope = ALL_UNITS) {
+function pendingConfirmations(scope: Scope = ALL_UNITS) {
   return slotStatuses(scope)
     .filter((s) => new Date(s.event.startsAt) >= TODAY)
     .flatMap((s) =>
@@ -433,21 +500,21 @@ export function pendingConfirmations(scope: Scope = ALL_UNITS) {
 /* Agenda                                                             */
 /* ================================================================== */
 
-export function upcomingEvents(scope: Scope = ALL_UNITS, limit = 6) {
+function upcomingEvents(scope: Scope = ALL_UNITS, limit = 6) {
   return inScope(events, scope)
     .filter((e) => new Date(e.startsAt) >= TODAY)
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
     .slice(0, limit);
 }
 
-export function pastEvents(scope: Scope = ALL_UNITS) {
+function pastEvents(scope: Scope = ALL_UNITS) {
   return inScope(events, scope)
     .filter((e) => new Date(e.startsAt) < TODAY)
     .sort((a, b) => b.startsAt.localeCompare(a.startsAt));
 }
 
 /** Frequência média dos cultos já realizados. */
-export function averageServiceAttendance(scope: Scope = ALL_UNITS) {
+function averageServiceAttendance(scope: Scope = ALL_UNITS) {
   const rows = pastEvents(scope).filter(
     (e) => e.kind === "culto" && e.actualAttendance !== null,
   );
@@ -473,7 +540,7 @@ function monthKey(iso: string) {
   return iso.slice(0, 7);
 }
 
-export function financeSummary(scope: Scope = ALL_UNITS, month?: string) {
+function financeSummary(scope: Scope = ALL_UNITS, month?: string) {
   const key = month ?? TODAY.toISOString().slice(0, 7);
   const rows = effective(inScope(transactions, scope)).filter(
     (t) => monthKey(t.competenceDate) === key,
@@ -489,7 +556,7 @@ export function financeSummary(scope: Scope = ALL_UNITS, month?: string) {
   return { month: key, incomeCents: income, expenseCents: expense, resultCents: income - expense };
 }
 
-export function financeSeries(scope: Scope = ALL_UNITS, months = 6) {
+function financeSeries(scope: Scope = ALL_UNITS, months = 6) {
   const rows = effective(inScope(transactions, scope));
   const out: Array<{
     key: string;
@@ -523,7 +590,7 @@ export function financeSeries(scope: Scope = ALL_UNITS, months = 6) {
 }
 
 /** Saldo = abertura das contas + razão. Nunca guardado em coluna (AD-08). */
-export function currentBalance(scope: Scope = ALL_UNITS) {
+function currentBalance(scope: Scope = ALL_UNITS) {
   const accounts = inScope(financialAccounts, scope);
   const opening = accounts.reduce((s, a) => s + a.openingBalanceCents, 0);
   const accountIds = new Set(accounts.map((a) => a.id));
@@ -533,7 +600,7 @@ export function currentBalance(scope: Scope = ALL_UNITS) {
   return opening + ledger;
 }
 
-export function balanceByAccount(scope: Scope = ALL_UNITS) {
+function balanceByAccount(scope: Scope = ALL_UNITS) {
   return inScope(financialAccounts, scope).map((account) => {
     const ledger = effective(transactions)
       .filter((t) => t.accountId === account.id && t.status !== "pending")
@@ -546,7 +613,7 @@ export function balanceByAccount(scope: Scope = ALL_UNITS) {
 }
 
 /** Contas a pagar em aberto, com vencimento nos próximos N dias. */
-export function upcomingPayables(scope: Scope = ALL_UNITS, days = 15) {
+function upcomingPayables(scope: Scope = ALL_UNITS, days = 15) {
   const limit = new Date(TODAY.getTime() + days * 86_400_000);
   return effective(inScope(transactions, scope))
     .filter(
@@ -559,7 +626,7 @@ export function upcomingPayables(scope: Scope = ALL_UNITS, days = 15) {
     .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!));
 }
 
-export function expensesByCategory(scope: Scope = ALL_UNITS, month?: string) {
+function expensesByCategory(scope: Scope = ALL_UNITS, month?: string) {
   const key = month ?? TODAY.toISOString().slice(0, 7);
   const rows = effective(inScope(transactions, scope)).filter(
     (t) => t.kind === "expense" && monthKey(t.competenceDate) === key,
@@ -576,7 +643,7 @@ export function expensesByCategory(scope: Scope = ALL_UNITS, month?: string) {
     .sort((a, b) => b.cents - a.cents);
 }
 
-export function listTransactions(
+function listTransactions(
   scope: Scope = ALL_UNITS,
   filters: { kind?: "income" | "expense" | "all"; month?: string } = {},
 ) {
@@ -593,7 +660,7 @@ export function listTransactions(
 /* Ministérios                                                         */
 /* ================================================================== */
 
-export function ministriesWithStats(scope: Scope = ALL_UNITS) {
+function ministriesWithStats(scope: Scope = ALL_UNITS) {
   return inScope(ministries, scope).map((ministry) => {
     const members = people.filter((p) => p.ministryIds.includes(ministry.id));
     const ministryPositions = positions.filter(
@@ -613,17 +680,9 @@ export function ministriesWithStats(scope: Scope = ALL_UNITS) {
 /* Central de pendências do dashboard                                  */
 /* ================================================================== */
 
-export interface ActionItem {
-  id: string;
-  label: string;
-  detail: string;
-  href: string;
-  severity: "high" | "medium" | "low";
-  count: number;
-}
 
 /** Tudo que precisa de atenção hoje, derivado dos dados reais. */
-export function actionCenter(scope: Scope = ALL_UNITS): ActionItem[] {
+function actionCenter(scope: Scope = ALL_UNITS): ActionItem[] {
   const items: ActionItem[] = [];
 
   const followups = overdueFollowups(scope);
@@ -720,7 +779,7 @@ const ROLE_ORDER: Record<FamilyRole, number> = {
   relative: 3,
 };
 
-export function familiesWithMembers(scope: Scope = ALL_UNITS) {
+function familiesWithMembers(scope: Scope = ALL_UNITS) {
   return inScope(families, scope)
     .map((family) => {
       const members = familyMembers
@@ -751,21 +810,21 @@ export function familiesWithMembers(scope: Scope = ALL_UNITS) {
 }
 
 /** Pessoas sem família vinculada — o trabalho que falta no cadastro. */
-export function peopleWithoutFamily(scope: Scope = ALL_UNITS) {
+function peopleWithoutFamily(scope: Scope = ALL_UNITS) {
   const linked = new Set(familyMembers.map((fm) => fm.personId));
   return inScope(people, scope).filter(
     (p) => !linked.has(p.id) && p.status !== "visitor",
   );
 }
 
-export const getEmergencyContacts = (personId: string) =>
+const getEmergencyContacts = (personId: string) =>
   emergencyContacts.filter((ec) => ec.personId === personId);
 
 /* ================================================================== */
 /* Cultos — Módulo 09                                                  */
 /* ================================================================== */
 
-export function servicesWithProgram(scope: Scope = ALL_UNITS) {
+function servicesWithProgram(scope: Scope = ALL_UNITS) {
   return inScope(services, scope)
     .map((service) => {
       const event = EVENTS_BY_ID.get(service.eventId)!;
@@ -810,20 +869,20 @@ export function servicesWithProgram(scope: Scope = ALL_UNITS) {
 /* Eventos e inscrições — Módulo 08                                    */
 /* ================================================================== */
 
-export function registrationsFor(eventId: string) {
+function registrationsFor(eventId: string) {
   return eventRegistrations
     .filter((r) => r.eventId === eventId && r.status !== "cancelled")
     .map((r) => ({ registration: r, person: PEOPLE_BY_ID.get(r.personId)! }));
 }
 
 /** Contagem de confirmados — derivada das linhas, nunca um número solto. */
-export function registrationCount(eventId: string) {
+function registrationCount(eventId: string) {
   return eventRegistrations.filter(
     (r) => r.eventId === eventId && r.status === "confirmed",
   ).length;
 }
 
-export function eventsWithRegistrations(scope: Scope = ALL_UNITS) {
+function eventsWithRegistrations(scope: Scope = ALL_UNITS) {
   return inScope(events, scope)
     .filter((e) => e.capacity !== null)
     .map((event) => {
@@ -865,7 +924,7 @@ function overlaps(a: RoomReservation, b: RoomReservation) {
   );
 }
 
-export function reservationsWithConflicts(scope: Scope = ALL_UNITS) {
+function reservationsWithConflicts(scope: Scope = ALL_UNITS) {
   const rows = inScope(roomReservations, scope);
   const live = rows.filter(
     (r) => r.status === "approved" || r.status === "pending",
@@ -904,7 +963,7 @@ export function reservationsWithConflicts(scope: Scope = ALL_UNITS) {
     );
 }
 
-export function roomUsage(scope: Scope = ALL_UNITS) {
+function roomUsage(scope: Scope = ALL_UNITS) {
   const rows = inScope(roomReservations, scope).filter(
     (r) => r.status === "approved",
   );
@@ -928,7 +987,7 @@ export function roomUsage(scope: Scope = ALL_UNITS) {
 /* Voluntários — Módulo 07                                             */
 /* ================================================================== */
 
-export function volunteersWithLoad(scope: Scope = ALL_UNITS) {
+function volunteersWithLoad(scope: Scope = ALL_UNITS) {
   const monthStart = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
   const monthEnd = new Date(TODAY.getFullYear(), TODAY.getMonth() + 1, 0);
   const slots = slotStatuses(ALL_UNITS);
@@ -990,7 +1049,7 @@ export function volunteersWithLoad(scope: Scope = ALL_UNITS) {
 }
 
 /** Voluntários disponíveis mas sem nenhuma escala no mês. */
-export function idleVolunteers(scope: Scope = ALL_UNITS) {
+function idleVolunteers(scope: Scope = ALL_UNITS) {
   return volunteersWithLoad(scope).filter(
     (v) => v.assignedThisMonth === 0 && !v.activeBlackout,
   );
@@ -1000,15 +1059,8 @@ export function idleVolunteers(scope: Scope = ALL_UNITS) {
 /* Perfil de pessoa — tela de detalhe                                  */
 /* ================================================================== */
 
-export interface TimelineEntry {
-  id: string;
-  date: string;
-  label: string;
-  detail: string | null;
-  kind: "membership" | "group" | "ministry" | "visit" | "record";
-}
 
-export function personProfile(personId: string) {
+function personProfile(personId: string) {
   const person = PEOPLE_BY_ID.get(personId);
   if (!person) return null;
 
@@ -1164,7 +1216,7 @@ export function personProfile(personId: string) {
 }
 
 /** Pessoa anterior e seguinte na listagem, para navegar sem voltar. */
-export function personNeighbours(personId: string, scope: Scope = ALL_UNITS) {
+function personNeighbours(personId: string, scope: Scope = ALL_UNITS) {
   const list = listPeople(scope);
   const index = list.findIndex((p) => p.id === personId);
   if (index === -1) return { previous: null, next: null, index: -1, total: list.length };
@@ -1180,7 +1232,7 @@ export function personNeighbours(personId: string, scope: Scope = ALL_UNITS) {
 /* Perfil de pequeno grupo — tela de detalhe                           */
 /* ================================================================== */
 
-export function groupProfile(groupId: string) {
+function groupProfile(groupId: string) {
   const group = GROUPS_BY_ID.get(groupId);
   if (!group) return null;
 
@@ -1225,3 +1277,110 @@ export function groupProfile(groupId: string) {
     nextMeeting: meetings.find((m) => !m.heldAt) ?? null,
   };
 }
+
+return {
+  getPerson,
+  getUnit,
+  getGroup,
+  getMinistry,
+  getEvent,
+  getRoom,
+  getCategory,
+  getAccount,
+  activeCongregation,
+  listPeople,
+  countByStatus,
+  upcomingBirthdays,
+  newPeople,
+  membershipGrowth,
+  ageDistribution,
+  visitorBoard,
+  overdueFollowups,
+  visitorsThisMonth,
+  groupsWithStats,
+  groupAttendanceSeries,
+  slotStatuses,
+  incompleteSchedules,
+  pendingConfirmations,
+  upcomingEvents,
+  pastEvents,
+  averageServiceAttendance,
+  financeSummary,
+  financeSeries,
+  currentBalance,
+  balanceByAccount,
+  upcomingPayables,
+  expensesByCategory,
+  listTransactions,
+  ministriesWithStats,
+  actionCenter,
+  familiesWithMembers,
+  peopleWithoutFamily,
+  getEmergencyContacts,
+  servicesWithProgram,
+  registrationsFor,
+  registrationCount,
+  eventsWithRegistrations,
+  reservationsWithConflicts,
+  roomUsage,
+  volunteersWithLoad,
+  idleVolunteers,
+  personProfile,
+  personNeighbours,
+  groupProfile,
+};
+}
+
+/* Instância ligada ao seed — usada pelas páginas do servidor. */
+export const seedQueries = createQueries(SEED_DATASET);
+export const {
+  getPerson,
+  getUnit,
+  getGroup,
+  getMinistry,
+  getEvent,
+  getRoom,
+  getCategory,
+  getAccount,
+  activeCongregation,
+  listPeople,
+  countByStatus,
+  upcomingBirthdays,
+  newPeople,
+  membershipGrowth,
+  ageDistribution,
+  visitorBoard,
+  overdueFollowups,
+  visitorsThisMonth,
+  groupsWithStats,
+  groupAttendanceSeries,
+  slotStatuses,
+  incompleteSchedules,
+  pendingConfirmations,
+  upcomingEvents,
+  pastEvents,
+  averageServiceAttendance,
+  financeSummary,
+  financeSeries,
+  currentBalance,
+  balanceByAccount,
+  upcomingPayables,
+  expensesByCategory,
+  listTransactions,
+  ministriesWithStats,
+  actionCenter,
+  familiesWithMembers,
+  peopleWithoutFamily,
+  getEmergencyContacts,
+  servicesWithProgram,
+  registrationsFor,
+  registrationCount,
+  eventsWithRegistrations,
+  reservationsWithConflicts,
+  roomUsage,
+  volunteersWithLoad,
+  idleVolunteers,
+  personProfile,
+  personNeighbours,
+  groupProfile,
+} = seedQueries;

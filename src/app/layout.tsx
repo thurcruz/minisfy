@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Sora } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { AppShell } from "@/components/app-shell";
+import { DataStoreProvider } from "@/store/data-store";
 import "./globals.css";
 
 /**
@@ -50,7 +51,9 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <AppShell>{children}</AppShell>
+          <DataStoreProvider>
+            <AppShell>{children}</AppShell>
+          </DataStoreProvider>
         </ThemeProvider>
       </body>
     </html>

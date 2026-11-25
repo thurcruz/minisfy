@@ -5,7 +5,7 @@
 
 ## Estado atual
 
-**Protótipo · 13 de 34 telas.**
+**Protótipo · 13 de 34 telas, com detalhe e formulários funcionando.**
 Aplicação roda, compila, passa typecheck e lint. **Ainda não há banco,
 autenticação nem permissões** — por decisão sua, o backend vem depois.
 
@@ -25,6 +25,8 @@ autenticação nem permissões** — por decisão sua, o backend vem depois.
 | 2026-11-25 | Telas: Dashboard, Membros, Visitantes, Grupos, Ministérios, Escalas, Agenda, Financeiro |
 | 2026-11-25 | Telas: Famílias, Cultos, Eventos, Reservas, Voluntários |
 | 2026-11-25 | Modelo estendido: composição familiar, contatos de emergência, ordem do culto, inscrições, reservas, perfis e bloqueios de voluntário |
+| 2026-11-25 | Telas de detalhe: perfil de pessoa e de pequeno grupo |
+| 2026-11-25 | Store do protótipo com persistência no navegador; cadastro e edição de pessoa salvam de verdade; busca, filtros e paginação funcionais |
 
 ### Decisões aprovadas por você
 
@@ -40,7 +42,8 @@ Nada em andamento. Aguardando sua direção sobre o próximo passo.
 
 | Prioridade | Item |
 |---|---|
-| Alta | Telas de detalhe (perfil de membro, de grupo, de lançamento) e formulários funcionais |
+| Alta | Formulários restantes: relatório de encontro, lançamento financeiro, confirmação de escala (ações já existem no store) |
+| Alta | Telas de detalhe de visitante, ministério, evento e lançamento |
 | Média | Telas restantes: Pastoral, Ensino, Comunicação, Pass, Portal do Membro, Patrimônio, Estoque, Relatórios, Intelligence, Flow, Configurações |
 | Alta | Fase 1 — Supabase: tenancy, RBAC, RLS, autenticação |
 | Média | Validação responsiva em telas pequenas (ver *Problemas*) |
@@ -59,6 +62,13 @@ Nada em andamento. Aguardando sua direção sobre o próximo passo.
 
 Todas em `docs/01-ARQUITETURA.md` (AD-01 a AD-14). Adicionais tomadas no protótipo:
 
+- **Consultas em fábrica sobre um `Dataset`.** `createQueries(data)` roda
+  tanto sobre o seed (páginas do servidor) quanto sobre o store do navegador
+  (telas interativas). Uma implementação só, dois conjuntos de dados — quando
+  o Supabase entrar, some o store e sobra a consulta ao banco.
+- **Store do protótipo em `src/store/`.** Persiste no localStorage o que os
+  formulários salvam, com aviso visível e botão de restaurar. Lido por
+  `useSyncExternalStore`, sem efeito de hidratação.
 - **Dados fictícios isolados em `src/mocks/`.** Nenhum componente escreve número
   à mão; tudo é derivado por `queries.ts`. Trocar para Supabase altera só essa
   camada. Banner "Protótipo · dados fictícios" visível em toda tela.
@@ -83,14 +93,15 @@ Todas em `docs/01-ARQUITETURA.md` (AD-01 a AD-14). Adicionais tomadas no protót
 | 8 | Gerador de inscrições repetia pessoas: lista de espera sempre zerada | ✅ corrigido — passo coprimo, sem repetição |
 | 9 | Crianças de 6 anos inscritas na Escola Bíblica | ✅ corrigido — filtro por faixa etária |
 | 10 | Conflito de reserva atribuído à reserva já aprovada, não ao pedido novo | ✅ corrigido |
-| 11 | Responsividade em telas pequenas não verificada visualmente | ⚠️ aberto — redimensionamento falhou no ambiente de teste |
-| 12 | Tipografia da marca não fornecida | ⚠️ aberto — usando Sora como display |
+| 11 | `onSaved?.(createPerson(...))` — com optional chaining o argumento não é avaliado, então o cadastro não salvava e falhava em silêncio | ✅ corrigido |
+| 12 | `new Date()` durante o render quebra o prerender do Next 16 | ✅ corrigido — usa a data de referência do protótipo |
+| 13 | Responsividade em telas pequenas não verificada visualmente | ⚠️ aberto — redimensionamento falhou no ambiente de teste |
+| 14 | Tipografia da marca não fornecida | ⚠️ aberto — usando Sora como display |
 
 ## Próximos passos
 
-1. **Profundidade antes de largura**: telas de detalhe e formulários que
-   funcionam de verdade. Hoje só existem listagens — clicar num membro não
-   abre nada, e nenhum botão de cadastro faz algo.
+1. **Completar os formulários** usando o store que já existe: relatório de
+   encontro do líder, lançamento financeiro e confirmação de escala.
 2. **Subir para GitHub + Vercel** quando você quiser compartilhar o link.
 3. **Fase 1** (Supabase, tenancy, RBAC, autenticação), trocando `mocks/` por
    dados reais.
