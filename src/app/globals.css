@@ -1,0 +1,280 @@
+@import "tailwindcss";
+
+/* O padrão do Tailwind v4 para `dark:` é prefers-color-scheme. Como o tema
+   é escolhido pelo usuário (next-themes, attribute="class"), a variante
+   precisa seguir a classe .dark — senão `dark:` ignora o botão de tema. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================
+   MINISFY — Design Tokens
+   Paleta extraída de brand/png/MINISFY_CORES.png
+   Regras em docs/03-DESIGN-SYSTEM.md
+   ============================================================ */
+
+@theme {
+  /* --- Brand: indigo --- */
+  --color-brand-50: #f2f0fd;
+  --color-brand-100: #e4e0fb;
+  --color-brand-200: #bdbad8;
+  --color-brand-300: #a79fdd;
+  --color-brand-400: #8881c9;
+  --color-brand-500: #6852ec;
+  --color-brand-600: #5b49d1;
+  --color-brand-700: #352d7f;
+  --color-brand-800: #2d266c;
+  --color-brand-900: #151233;
+  --color-brand-950: #0e0c1f;
+
+  /* --- Accent: lime. NUNCA como cor de texto sobre fundo claro. --- */
+  --color-accent-200: #e6ffcf;
+  --color-accent-300: #cfffb3;
+  --color-accent-500: #b3ff3b;
+  --color-accent-700: #7fa62e;
+
+  /* --- Neutros --- */
+  --color-ink-0: #ffffff;
+  --color-ink-50: #f7f7f5;
+  --color-ink-100: #eaebe5;
+  --color-ink-200: #dcddd6;
+  --color-ink-300: #bac6db;
+  --color-ink-500: #7c7b88;
+  --color-ink-700: #403f4c;
+  --color-ink-900: #151233;
+
+  /* --- Semânticas (fora da paleta de marca, de propósito) --- */
+  --color-success: #2e9e5b;
+  --color-success-bg: #e7f6ed;
+  --color-warning: #b8730a;
+  --color-warning-bg: #fdf3e2;
+  --color-danger: #c0392b;
+  --color-danger-bg: #fcedeb;
+
+  /* --- Tipografia --- */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), var(--font-inter), sans-serif;
+
+  /* --- Raios: botões em pílula, cards suaves --- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* --- Sombras tingidas de brand-900, nunca preto puro --- */
+  --shadow-xs: 0 1px 2px rgb(21 18 51 / 0.05);
+  --shadow-sm: 0 1px 3px rgb(21 18 51 / 0.08), 0 1px 2px rgb(21 18 51 / 0.04);
+  --shadow-md: 0 4px 12px rgb(21 18 51 / 0.08);
+  --shadow-lg: 0 12px 32px rgb(21 18 51 / 0.12);
+}
+
+/* ============================================================
+   Tokens semânticos de superfície — trocam entre claro e escuro
+   ============================================================ */
+
+:root {
+  --bg-canvas: #f7f7f5;
+  --bg-surface: #ffffff;
+  --bg-raised: #ffffff;
+  --bg-sunken: #eaebe5;
+  --bg-hover: #f2f0fd;
+  --bg-active: #e4e0fb;
+
+  --border-subtle: #eaebe5;
+  --border-default: #dcddd6;
+  --border-strong: #bac6db;
+
+  --text-primary: #151233;
+  --text-secondary: #403f4c;
+  --text-muted: #7c7b88;
+  --text-inverse: #ffffff;
+
+  /* Interativo: brand-500 em fundo claro */
+  --interactive: #6852ec;
+  --interactive-hover: #5b49d1;
+  --interactive-fg: #ffffff;
+
+  /* Sidebar — sempre escura, nos dois temas: ancora a marca */
+  --sidebar-bg: #151233;
+  --sidebar-fg: #bdbad8;
+  --sidebar-fg-active: #ffffff;
+  --sidebar-hover: #2d266c;
+  --sidebar-active: #352d7f;
+  --sidebar-border: #2d266c;
+
+  /* Séries de gráfico — validadas em scripts/validate_palette.js
+     ΔE deutan 31,7 · normal 35,3 · contraste ≥3:1 sobre a superfície.
+     NÃO trocar sem revalidar. */
+  --chart-1: #6852ec; /* indigo — entradas, série principal */
+  --chart-2: #6b8f28; /* oliva  — saídas, série secundária  */
+  --chart-grid: #eaebe5;
+  --chart-axis: #7c7b88;
+
+  color-scheme: light;
+}
+
+.dark {
+  --bg-canvas: #0e0c1f;
+  --bg-surface: #151233;
+  --bg-raised: #1e1a42;
+  --bg-sunken: #0e0c1f;
+  --bg-hover: #1e1a42;
+  --bg-active: #2d266c;
+
+  --border-subtle: #221d4d;
+  --border-default: #2d266c;
+  --border-strong: #352d7f;
+
+  --text-primary: #eaebe5;
+  --text-secondary: #bdbad8;
+  --text-muted: #8881c9;
+  --text-inverse: #151233;
+
+  /* brand-500 vibra demais em fundo escuro — subimos para brand-400 */
+  --interactive: #8881c9;
+  --interactive-hover: #a79fdd;
+  --interactive-fg: #151233;
+
+  --sidebar-bg: #0a0818;
+  --sidebar-fg: #8881c9;
+  --sidebar-fg-active: #ffffff;
+  --sidebar-hover: #1e1a42;
+  --sidebar-active: #2d266c;
+  --sidebar-border: #221d4d;
+
+  /* Escuro NÃO é inversão: passos próprios, revalidados contra #151233.
+     ΔE deutan 29,5 · normal 32,6 · contraste ≥3:1. */
+  --chart-1: #8172f0;
+  --chart-2: #79a02c;
+  --chart-grid: #221d4d;
+  --chart-axis: #8881c9;
+
+  color-scheme: dark;
+}
+
+/* Expõe os tokens semânticos como utilitários Tailwind */
+@theme inline {
+  --color-canvas: var(--bg-canvas);
+  --color-surface: var(--bg-surface);
+  --color-raised: var(--bg-raised);
+  --color-sunken: var(--bg-sunken);
+  --color-hover: var(--bg-hover);
+  --color-active: var(--bg-active);
+
+  --color-subtle: var(--border-subtle);
+  --color-line: var(--border-default);
+  --color-strong: var(--border-strong);
+
+  --color-fg: var(--text-primary);
+  --color-fg-secondary: var(--text-secondary);
+  --color-fg-muted: var(--text-muted);
+  --color-fg-inverse: var(--text-inverse);
+
+  --color-interactive: var(--interactive);
+  --color-interactive-hover: var(--interactive-hover);
+  --color-interactive-fg: var(--interactive-fg);
+
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-fg: var(--sidebar-fg);
+  --color-sidebar-fg-active: var(--sidebar-fg-active);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-line: var(--sidebar-border);
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+* {
+  border-color: var(--border-subtle);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Valores monetários e qualquer coluna numérica: largura fixa por dígito,
+   senão a coluna "dança" entre as linhas. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Foco visível e consistente — acessibilidade por teclado */
+:focus-visible {
+  outline: 2px solid var(--interactive);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: var(--color-brand-200);
+  color: var(--color-brand-900);
+}
+
+/* Scrollbar discreta */
+@supports selector(::-webkit-scrollbar) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(255 255 255 / 0.25),
+    transparent
+  );
+  animation: shimmer 1.6s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
