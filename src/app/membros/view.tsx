@@ -10,6 +10,7 @@ import { Select } from "@/ui/field";
 import { age, dateShort, num, phone } from "@/lib/format";
 import { AreaChart, HBarChart } from "@/ui/charts";
 import { Button } from "@/ui/button";
+import { PlannedButton } from "@/ui/planned";
 import {
   Avatar,
   Badge,
@@ -88,14 +89,18 @@ export function View() {
         description={`${num(status.total)} pessoas cadastradas em ${units.length} unidades`}
         actions={
           <>
-            <Button variant="secondary" size="sm">
+            <PlannedButton variant="secondary" size="sm"
+              reason="Importação de planilha ainda não construída"
+            >
               <Upload />
               Importar
-            </Button>
-            <Button variant="secondary" size="sm">
+            </PlannedButton>
+            <PlannedButton variant="secondary" size="sm"
+              reason="Exportação da lista ainda não construída"
+            >
               <Download />
               Exportar
-            </Button>
+            </PlannedButton>
             <Button size="sm" onClick={() => setFormOpen(true)}>
               <Plus />
               Nova pessoa

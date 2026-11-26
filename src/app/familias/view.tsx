@@ -4,7 +4,7 @@ import { CircleAlert, Contact, Phone, Plus, ShieldAlert } from "lucide-react";
 import { TODAY } from "@/mocks/queries";
 import { useQueries } from "@/store/use-queries";
 import { age, num, phone, shortName } from "@/lib/format";
-import { Button } from "@/ui/button";
+import { PlannedButton } from "@/ui/planned";
 import {
   Avatar,
   Badge,
@@ -40,10 +40,12 @@ export function View() {
         title="Famílias"
         description={`${num(families.length)} núcleos · ${num(totalPeople)} pessoas vinculadas`}
         actions={
-          <Button size="sm">
+          <PlannedButton size="sm"
+            reason="Cadastro de família ainda não construído"
+          >
             <Plus />
             Nova família
-          </Button>
+          </PlannedButton>
         }
       />
 
@@ -69,9 +71,11 @@ export function View() {
                 {missingContact.map((c) => shortName(c.person.name)).join(" · ")}
               </p>
             </div>
-            <Button variant="secondary" size="sm">
+            <PlannedButton variant="secondary" size="sm"
+              reason="Assistente de completar cadastros ainda não construído"
+            >
               Completar cadastros
-            </Button>
+            </PlannedButton>
           </div>
         </Card>
       )}
@@ -87,10 +91,12 @@ export function View() {
             title="Nenhuma família cadastrada"
             description="Agrupe pessoas em núcleos familiares para organizar visitas, check-in infantil e comunicação."
             action={
-              <Button size="sm">
+              <PlannedButton size="sm"
+                reason="Cadastro de família ainda não construído"
+              >
                 <Plus />
                 Criar primeira família
-              </Button>
+              </PlannedButton>
             }
           />
         </Card>

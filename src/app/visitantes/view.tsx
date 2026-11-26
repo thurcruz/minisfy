@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { CircleAlert, ExternalLink, Plus, UserPlus } from "lucide-react";
 import { TODAY } from "@/mocks/queries";
 import { useQueries } from "@/store/use-queries";
 import { dateShort, num, relativeDay, shortName } from "@/lib/format";
-import { Button } from "@/ui/button";
+import { PlannedButton } from "@/ui/planned";
 import {
   Avatar,
   Badge,
@@ -43,14 +44,18 @@ export function View() {
         description={`${num(total)} em acompanhamento · ${num(monthCount)} primeiras visitas este mês`}
         actions={
           <>
-            <Button variant="secondary" size="sm">
+            <PlannedButton variant="secondary" size="sm"
+              reason="Formulário público depende de rota aberta e autenticação — Fase 1"
+            >
               <ExternalLink />
               Formulário público
-            </Button>
-            <Button size="sm">
+            </PlannedButton>
+            <PlannedButton size="sm"
+              reason="Registro de visitante com entrada no funil ainda não construído"
+            >
               <Plus />
               Registrar visitante
-            </Button>
+            </PlannedButton>
           </>
         }
       />
@@ -76,9 +81,11 @@ export function View() {
                 </li>
               ))}
             </ul>
-            <Button variant="secondary" size="sm" className="ml-auto">
+            <PlannedButton variant="secondary" size="sm" className="ml-auto"
+              reason="Lista de tarefas de acompanhamento ainda não construída"
+            >
               Ver tarefas
-            </Button>
+            </PlannedButton>
           </div>
         </Card>
       )}
@@ -152,9 +159,12 @@ export function View() {
                         <div className="flex items-start gap-2.5">
                           <Avatar name={person.name} size="sm" />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-[13px] font-medium text-fg">
+                            <Link
+                              href={`/visitantes/${person.id}`}
+                              className="block truncate text-[13px] font-medium text-fg hover:underline"
+                            >
                               {person.name}
-                            </p>
+                            </Link>
                             <p className="truncate text-[11px] text-fg-muted">
                               {person.neighborhood}
                             </p>
@@ -230,7 +240,9 @@ export function View() {
             icon={UserPlus}
             title="Nenhum visitante em acompanhamento"
             description="Publique o formulário público para que visitantes se cadastrem sozinhos no culto."
-            action={<Button size="sm">Publicar formulário</Button>}
+            action={<PlannedButton size="sm"
+                      reason="Formulário público depende de rota aberta e autenticação — Fase 1"
+                    >Publicar formulário</PlannedButton>}
           />
         </Card>
       )}

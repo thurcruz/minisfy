@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { TODAY } from "@/mocks/queries";
 import { useQueries } from "@/store/use-queries";
+import { useStore } from "@/store/data-store";
 import { MeetingReportModal } from "@/modules/groups/meeting-report";
 import {
   age,
@@ -31,6 +32,7 @@ import {
 } from "@/lib/format";
 import { AreaChart } from "@/ui/charts";
 import { Button } from "@/ui/button";
+import { PlannedButton } from "@/ui/planned";
 import {
   Avatar,
   Badge,
@@ -40,6 +42,7 @@ import {
   CardTitle,
   EmptyState,
   PageHeader,
+  RecordLoading,
   Table,
   Td,
   Th,
@@ -51,9 +54,14 @@ import { cn } from "@/lib/utils";
 
 export function View({ id }: { id: string }) {
   const { groupProfile } = useQueries();
+  const { hydrated } = useStore();
   const [reportId, setReportId] = useState<string | null>(null);
   const g = groupProfile(id);
-  if (!g) notFound();
+
+  if (!g) {
+    if (!hydrated) return <RecordLoading />;
+    notFound();
+  }
 
   /** Encontro que o botão principal abre: o pendente mais recente,
    *  ou o próximo agendado quando não há pendência. */
@@ -82,10 +90,12 @@ export function View({ id }: { id: string }) {
         description={`${weekday(g.group.weekday)} às ${g.group.startTime} · ${g.group.neighborhood} · ${g.unit?.name}`}
         actions={
           <>
-            <Button variant="secondary" size="sm">
+            <PlannedButton variant="secondary" size="sm"
+              reason="Edição de grupo ainda não construída"
+            >
               <Pencil />
               Editar
-            </Button>
+            </PlannedButton>
             <Button
               size="sm"
               onClick={() => setReportId(defaultMeeting?.id ?? null)}
@@ -303,9 +313,11 @@ export function View({ id }: { id: string }) {
                 icon={UserPlus}
                 title="Nenhum participante"
                 action={
-                  <Button variant="secondary" size="sm">
+                  <PlannedButton variant="secondary" size="sm"
+                    reason="Vincular participante ao grupo ainda não construído"
+                  >
                     Adicionar participante
-                  </Button>
+                  </PlannedButton>
                 }
               />
             )}

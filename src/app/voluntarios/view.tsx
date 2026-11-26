@@ -12,7 +12,7 @@ import {
 import { TODAY } from "@/mocks/queries";
 import { useQueries } from "@/store/use-queries";
 import { num, shortName, toDate, weekday } from "@/lib/format";
-import { Button } from "@/ui/button";
+import { PlannedButton } from "@/ui/planned";
 import {
   Avatar,
   Badge,
@@ -58,10 +58,12 @@ export function View() {
         title="Voluntários"
         description={`${num(volunteers.length)} pessoas servindo em ministérios`}
         actions={
-          <Button size="sm">
+          <PlannedButton size="sm"
+            reason="Perfil de voluntário com função, teto mensal e disponibilidade ainda não construído"
+          >
             <Plus />
             Cadastrar voluntário
-          </Button>
+          </PlannedButton>
         }
       />
 
@@ -124,9 +126,11 @@ export function View() {
                       {v.profiles.map((p) => p.ministry.name).join(", ")}
                     </span>
                   </span>
-                  <Button variant="ghost" size="sm" className="shrink-0">
+                  <PlannedButton variant="ghost" size="sm" className="shrink-0"
+                    reason="Convite de voluntário para uma vaga de escala ainda não construído"
+                  >
                     Convidar
-                  </Button>
+                  </PlannedButton>
                 </li>
               ))}
             </ul>
@@ -243,10 +247,12 @@ export function View() {
             title="Nenhum voluntário cadastrado"
             description="Vincule pessoas a ministérios para montar escalas e acompanhar disponibilidade."
             action={
-              <Button size="sm">
+              <PlannedButton size="sm"
+                reason="Perfil de voluntário com função, teto mensal e disponibilidade ainda não construído"
+              >
                 <Plus />
                 Cadastrar primeiro voluntário
-              </Button>
+              </PlannedButton>
             }
           />
         ) : (

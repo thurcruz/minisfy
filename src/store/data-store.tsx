@@ -7,8 +7,18 @@ import {
   useMemo,
   useSyncExternalStore,
 } from "react";
-import { SEED_DATASET, type Dataset } from "@/mocks/queries";
-import type { GroupMeeting, Person, Transaction } from "@/mocks/types";
+import { SEED_DATASET, TODAY, currentUserId } from "@/mocks/queries";
+import type { Dataset } from "@/mocks/queries";
+import type {
+  ChurchEvent,
+  GroupMeeting,
+  Person,
+  ReservationStatus,
+  RoomReservation,
+  SmallGroup,
+  Transaction,
+  VisitorJourney,
+} from "@/mocks/types";
 
 /**
  * Store do protótipo.
@@ -26,11 +36,36 @@ import type { GroupMeeting, Person, Transaction } from "@/mocks/types";
 
 const STORAGE_KEY = "minisfy.prototype.v1";
 
+/**
+ * Data de referência do protótipo, não o relógio da máquina: todo o
+ * seed é construído em torno dela, e um registro gravado com a data
+ * real apareceria fora de ordem nas telas.
+ */
+const ISO_TODAY = TODAY.toISOString().slice(0, 10);
+
 /** Só as coleções que algum formulário altera são persistidas. */
 type Persisted = Pick<
   Dataset,
-  "people" | "groupMeetings" | "transactions" | "scheduleAssignments"
+  | "people"
+  | "groupMeetings"
+  | "transactions"
+  | "scheduleAssignments"
+  | "visitorJourneys"
+  | "smallGroups"
+  | "events"
+  | "roomReservations"
 >;
+
+const PERSISTED_KEYS = [
+  "people",
+  "groupMeetings",
+  "transactions",
+  "scheduleAssignments",
+  "visitorJourneys",
+  "smallGroups",
+  "events",
+  "roomReservations",
+] as const satisfies readonly (keyof Persisted)[];
 
 /* ------------------------------------------------------------------ */
 /* Fonte externa                                                       */
@@ -43,7 +78,19 @@ const listeners = new Set<() => void>();
 function readStorage(): Persisted | null {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Persisted) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Persisted>;
+    /**
+     * Uma versão anterior pode ter gravado menos coleções. Completar
+     * com o seed evita que a tela quebre com `undefined.filter`
+     * depois de uma atualização do protótipo.
+     */
+    const merged = {} as Persisted;
+    for (const key of PERSISTED_KEYS) {
+      // @ts-expect-error — chaves homogêneas, tipos por coleção
+      merged[key] = parsed[key] ?? SEED_DATASET[key];
+    }
+    return merged;
   } catch {
     // Janela anônima, armazenamento bloqueado ou JSON corrompido:
     // o protótipo segue funcionando a partir do seed.
@@ -64,6 +111,9 @@ function getServerSnapshot(): Persisted | null {
   return null;
 }
 
+const TRUE_SNAPSHOT = () => true;
+const FALSE_SNAPSHOT = () => false;
+
 function subscribe(onChange: () => void) {
   listeners.add(onChange);
   return () => {
@@ -81,6 +131,13 @@ function publish(next: Persisted | null) {
     /* sem persistência; a sessão atual continua válida */
   }
   for (const listener of listeners) listener();
+}
+
+/** Identificador local — o banco usará uuid gerado pelo próprio Postgres. */
+let sequence = 0;
+function localId(prefix: string) {
+  sequence += 1;
+  return `${prefix}-new-${Date.now().toString(36)}${sequence.toString(36)}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -120,10 +177,54 @@ export type NewTransaction = Pick<
   | "description"
 >;
 
+export type NewGroup = Pick<
+  SmallGroup,
+  | "unitId"
+  | "name"
+  | "category"
+  | "weekday"
+  | "startTime"
+  | "neighborhood"
+  | "capacity"
+  | "leaderId"
+  | "hostId"
+>;
+
+export type NewEvent = Pick<
+  ChurchEvent,
+  | "unitId"
+  | "kind"
+  | "title"
+  | "startsAt"
+  | "endsAt"
+  | "roomId"
+  | "capacity"
+  | "expectedAttendance"
+>;
+
+export type NewReservation = Pick<
+  RoomReservation,
+  "unitId" | "roomId" | "title" | "startsAt" | "endsAt" | "requestedById" | "notes"
+>;
+
+export interface Followup {
+  label: string;
+  date: string | null;
+}
+
 interface StoreValue {
   data: Dataset;
   /** true quando há alterações por cima do seed */
   dirty: boolean;
+  /**
+   * false no HTML do servidor, true depois de hidratar.
+   *
+   * Uma tela de detalhe precisa disto: no servidor o dataset é sempre
+   * o seed, então um registro criado no protótipo "não existe" ali.
+   * Chamar notFound() nesse momento mandaria a pessoa para o 404 de um
+   * cadastro que ela acabou de fazer.
+   */
+  hydrated: boolean;
   createPerson: (input: NewPerson) => Person;
   updatePerson: (id: string, patch: Partial<Person>) => void;
   archivePerson: (id: string) => void;
@@ -133,6 +234,13 @@ interface StoreValue {
     assignmentId: string,
     status: "confirmed" | "declined",
   ) => void;
+  moveVisitor: (journeyId: string, stageId: string) => void;
+  logVisit: (journeyId: string) => void;
+  setFollowup: (journeyId: string, followup: Followup) => void;
+  createGroup: (input: NewGroup) => SmallGroup;
+  createEvent: (input: NewEvent, options?: { bookRoom?: boolean }) => ChurchEvent;
+  createReservation: (input: NewReservation) => RoomReservation;
+  decideReservation: (id: string, status: ReservationStatus) => void;
   reset: () => void;
 }
 
@@ -149,6 +257,13 @@ export function DataStoreProvider({
     getServerSnapshot,
   );
 
+  /* Sem efeito: o React já troca o snapshot do servidor ao hidratar. */
+  const hydrated = useSyncExternalStore(
+    subscribe,
+    TRUE_SNAPSHOT,
+    FALSE_SNAPSHOT,
+  );
+
   const data: Dataset = useMemo(
     () => (persisted ? { ...SEED_DATASET, ...persisted } : SEED_DATASET),
     [persisted],
@@ -156,23 +271,22 @@ export function DataStoreProvider({
 
   const commit = useCallback(
     (next: Partial<Persisted>) => {
-      const base: Persisted = persisted ?? {
-        people: SEED_DATASET.people,
-        groupMeetings: SEED_DATASET.groupMeetings,
-        transactions: SEED_DATASET.transactions,
-        scheduleAssignments: SEED_DATASET.scheduleAssignments,
-      };
+      const base = {} as Persisted;
+      for (const key of PERSISTED_KEYS) {
+        // @ts-expect-error — chaves homogêneas, tipos por coleção
+        base[key] = data[key];
+      }
       publish({ ...base, ...next });
     },
-    [persisted],
+    [data],
   );
 
   const createPerson = useCallback(
     (input: NewPerson) => {
       const person: Person = {
         ...input,
-        id: `p-new-${Date.now().toString(36)}`,
-        createdAt: new Date().toISOString().slice(0, 10),
+        id: localId("p"),
+        createdAt: ISO_TODAY,
         familyId: null,
         isGuardian: false,
       };
@@ -223,7 +337,7 @@ export function DataStoreProvider({
     (input: NewTransaction) => {
       const transaction: Transaction = {
         ...input,
-        id: `t-new-${Date.now().toString(36)}`,
+        id: localId("t"),
         personId: null,
         reversalOfId: null,
       };
@@ -237,17 +351,161 @@ export function DataStoreProvider({
     (assignmentId: string, status: "confirmed" | "declined") => {
       commit({
         scheduleAssignments: data.scheduleAssignments.map((a) =>
-          a.id === assignmentId
-            ? {
-                ...a,
-                status,
-                respondedAt: new Date().toISOString().slice(0, 10),
-              }
-            : a,
+          a.id === assignmentId ? { ...a, status, respondedAt: ISO_TODAY } : a,
         ),
       });
     },
     [commit, data.scheduleAssignments],
+  );
+
+  /* ---------------------------------------------------------------- */
+  /* Funil de visitantes                                              */
+  /* ---------------------------------------------------------------- */
+
+  const patchJourney = useCallback(
+    (journeyId: string, patch: Partial<VisitorJourney>) => {
+      commit({
+        visitorJourneys: data.visitorJourneys.map((j) =>
+          j.id === journeyId ? { ...j, ...patch } : j,
+        ),
+      });
+    },
+    [commit, data.visitorJourneys],
+  );
+
+  /**
+   * Mover para etapa final encerra a tarefa de contato: deixar uma
+   * pendência aberta num visitante já integrado (ou perdido) suja a
+   * lista de vencidos e some com o número que importa.
+   */
+  const moveVisitor = useCallback(
+    (journeyId: string, stageId: string) => {
+      const stage = data.visitorStages.find((s) => s.id === stageId);
+      const closes = stage?.kind === "won" || stage?.kind === "lost";
+      patchJourney(journeyId, {
+        stageId,
+        ...(closes ? { nextActionAt: null, nextActionLabel: null } : {}),
+      });
+    },
+    [data.visitorStages, patchJourney],
+  );
+
+  const logVisit = useCallback(
+    (journeyId: string) => {
+      const journey = data.visitorJourneys.find((j) => j.id === journeyId);
+      if (!journey) return;
+      patchJourney(journeyId, { visitCount: journey.visitCount + 1 });
+    },
+    [data.visitorJourneys, patchJourney],
+  );
+
+  const setFollowup = useCallback(
+    (journeyId: string, followup: Followup) => {
+      patchJourney(journeyId, {
+        nextActionLabel: followup.label.trim() || null,
+        nextActionAt: followup.date,
+      });
+    },
+    [patchJourney],
+  );
+
+  /* ---------------------------------------------------------------- */
+  /* Criação de grupo, evento e reserva                               */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Líder e anfitrião passam a participar do grupo que abriram — é o
+   * que acontece na prática, e sem isso o grupo nasce com zero
+   * participantes e as médias saem erradas.
+   */
+  const createGroup = useCallback(
+    (input: NewGroup) => {
+      const group: SmallGroup = {
+        ...input,
+        id: localId("g"),
+        status: "active",
+        startedAt: ISO_TODAY,
+      };
+      const moving = new Set([input.leaderId, input.hostId]);
+      commit({
+        smallGroups: [...data.smallGroups, group],
+        people: data.people.map((p) =>
+          moving.has(p.id) ? { ...p, groupId: group.id } : p,
+        ),
+      });
+      return group;
+    },
+    [commit, data.people, data.smallGroups],
+  );
+
+  /**
+   * Evento com sala reserva a sala no mesmo gesto: no banco a reserva
+   * é a linha que a EXCLUDE constraint do AD-10 protege, então marcar
+   * a sala no evento sem gravar a reserva deixaria o espaço livre para
+   * outro grupo pedir.
+   */
+  const createEvent = useCallback(
+    (input: NewEvent, options?: { bookRoom?: boolean }) => {
+      const event: ChurchEvent = {
+        ...input,
+        id: localId("e"),
+        actualAttendance: null,
+      };
+      const next: Partial<Persisted> = { events: [...data.events, event] };
+
+      if (input.roomId && options?.bookRoom !== false) {
+        const reservation: RoomReservation = {
+          id: localId("rr"),
+          unitId: input.unitId,
+          roomId: input.roomId,
+          eventId: event.id,
+          title: input.title,
+          startsAt: input.startsAt,
+          endsAt: input.endsAt,
+          status: "approved",
+          requestedById: currentUserId,
+          approvedById: currentUserId,
+          notes: "Reserva criada junto com o evento",
+        };
+        next.roomReservations = [...data.roomReservations, reservation];
+      }
+
+      commit(next);
+      return event;
+    },
+    [commit, data.events, data.roomReservations],
+  );
+
+  const createReservation = useCallback(
+    (input: NewReservation) => {
+      const reservation: RoomReservation = {
+        ...input,
+        id: localId("rr"),
+        eventId: null,
+        status: "pending",
+        approvedById: null,
+      };
+      commit({ roomReservations: [...data.roomReservations, reservation] });
+      return reservation;
+    },
+    [commit, data.roomReservations],
+  );
+
+  const decideReservation = useCallback(
+    (id: string, status: ReservationStatus) => {
+      commit({
+        roomReservations: data.roomReservations.map((r) =>
+          r.id === id
+            ? {
+                ...r,
+                status,
+                approvedById: status === "approved" ? currentUserId : null,
+              }
+            : r,
+        ),
+      });
+    },
+    [commit, data.roomReservations],
   );
 
   const reset = useCallback(() => publish(null), []);
@@ -256,23 +514,39 @@ export function DataStoreProvider({
     () => ({
       data,
       dirty: persisted !== null,
+      hydrated,
       createPerson,
       updatePerson,
       archivePerson,
       reportMeeting,
       addTransaction,
       respondAssignment,
+      moveVisitor,
+      logVisit,
+      setFollowup,
+      createGroup,
+      createEvent,
+      createReservation,
+      decideReservation,
       reset,
     }),
     [
       data,
       persisted,
+      hydrated,
       createPerson,
       updatePerson,
       archivePerson,
       reportMeeting,
       addTransaction,
       respondAssignment,
+      moveVisitor,
+      logVisit,
+      setFollowup,
+      createGroup,
+      createEvent,
+      createReservation,
+      decideReservation,
       reset,
     ],
   );

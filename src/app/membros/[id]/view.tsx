@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { TODAY } from "@/mocks/queries";
 import { useQueries } from "@/store/use-queries";
+import { useStore } from "@/store/data-store";
 import { PersonFormModal } from "@/modules/people/person-form";
 import {
   age,
@@ -34,6 +35,7 @@ import {
   weekday,
 } from "@/lib/format";
 import { Button } from "@/ui/button";
+import { PlannedButton } from "@/ui/planned";
 import {
   Avatar,
   Badge,
@@ -42,6 +44,7 @@ import {
   CardHeader,
   CardTitle,
   EmptyState,
+  RecordLoading,
 } from "@/ui/primitives";
 import type { FamilyRole, MembershipStatus } from "@/mocks/types";
 import { cn } from "@/lib/utils";
@@ -76,9 +79,14 @@ const ROLE_LABEL: Record<FamilyRole, string> = {
 
 export function View({ id }: { id: string }) {
   const { personNeighbours, personProfile } = useQueries();
+  const { hydrated } = useStore();
   const [editOpen, setEditOpen] = useState(false);
   const p = personProfile(id);
-  if (!p) notFound();
+
+  if (!p) {
+    if (!hydrated) return <RecordLoading />;
+    notFound();
+  }
 
   const { previous, next, index, total } = personNeighbours(id);
   const years = age(p.person.birthDate, TODAY);
@@ -205,9 +213,11 @@ export function View({ id }: { id: string }) {
               Criança sem contato de emergência cadastrado — obrigatório para o
               check-in infantil.
             </p>
-            <Button variant="secondary" size="sm">
+            <PlannedButton variant="secondary" size="sm"
+              reason="Cadastro de contato de emergência ainda não construído"
+            >
               Adicionar contato
-            </Button>
+            </PlannedButton>
           </div>
         </Card>
       )}
@@ -396,9 +406,11 @@ export function View({ id }: { id: string }) {
                 title="Sem família vinculada"
                 description="Agrupar em um núcleo facilita visitas e check-in."
                 action={
-                  <Button variant="secondary" size="sm">
+                  <PlannedButton variant="secondary" size="sm"
+                    reason="Vínculo familiar ainda não construído"
+                  >
                     Vincular a uma família
-                  </Button>
+                  </PlannedButton>
                 }
               />
             )}
@@ -452,9 +464,11 @@ export function View({ id }: { id: string }) {
                 title="Não participa de um grupo"
                 description="Pequenos grupos são o principal caminho de integração."
                 action={
-                  <Button variant="secondary" size="sm">
+                  <PlannedButton variant="secondary" size="sm"
+                    reason="Convite para pequeno grupo ainda não construído"
+                  >
                     Convidar para um grupo
-                  </Button>
+                  </PlannedButton>
                 }
               />
             )}

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useQueries } from "@/store/use-queries";
 import { dateTime, num, shortName, time } from "@/lib/format";
-import { Button } from "@/ui/button";
+import { PlannedButton } from "@/ui/planned";
 import {
   Avatar,
   Badge,
@@ -64,10 +64,12 @@ export function View() {
         title="Cultos"
         description={`${num(services.length)} cultos planejados`}
         actions={
-          <Button size="sm">
+          <PlannedButton size="sm"
+            reason="Editor de ordem do culto ainda não construído"
+          >
             <Plus />
             Planejar culto
-          </Button>
+          </PlannedButton>
         }
       />
 
@@ -78,10 +80,12 @@ export function View() {
             title="Nenhum culto planejado"
             description="Monte a ordem do culto, defina preletor e dirigente e conecte com as escalas."
             action={
-              <Button size="sm">
+              <PlannedButton size="sm"
+                reason="Editor de ordem do culto ainda não construído"
+              >
                 <Plus />
                 Planejar primeiro culto
-              </Button>
+              </PlannedButton>
             }
           />
         </Card>

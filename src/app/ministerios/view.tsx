@@ -1,9 +1,10 @@
 "use client";
 
-import { Church, Plus } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, Church, Plus } from "lucide-react";
 import { useQueries } from "@/store/use-queries";
 import { num, shortName } from "@/lib/format";
-import { Button } from "@/ui/button";
+import { PlannedButton } from "@/ui/planned";
 import {
   Avatar,
   Badge,
@@ -27,10 +28,12 @@ export function View() {
         title="Ministérios"
         description={`${num(ministries.length)} ministérios · ${num(totalVolunteers)} pessoas servindo`}
         actions={
-          <Button size="sm">
+          <PlannedButton size="sm"
+            reason="Cadastro de ministério ainda não construído"
+          >
             <Plus />
             Novo ministério
-          </Button>
+          </PlannedButton>
         }
       />
 
@@ -41,10 +44,12 @@ export function View() {
             title="Nenhum ministério cadastrado"
             description="Cadastre louvor, mídia, recepção e os demais para organizar equipes e escalas."
             action={
-              <Button size="sm">
+              <PlannedButton size="sm"
+                reason="Cadastro de ministério ainda não construído"
+              >
                 <Plus />
                 Criar primeiro ministério
-              </Button>
+              </PlannedButton>
             }
           />
         </Card>
@@ -53,12 +58,21 @@ export function View() {
           {ministries.map((m) => {
             const unit = getUnit(m.ministry.unitId);
             return (
-              <Card key={m.ministry.id}>
+              <Card
+                key={m.ministry.id}
+                className="transition-shadow hover:shadow-sm"
+              >
                 <CardBody>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h2 className="truncate text-[15px] font-semibold text-fg">
-                        {m.ministry.name}
+                        <Link
+                          href={`/ministerios/${m.ministry.id}`}
+                          className="group/title flex items-center gap-1 hover:underline"
+                        >
+                          {m.ministry.name}
+                          <ChevronRight className="size-3.5 text-fg-muted opacity-0 transition-opacity group-hover/title:opacity-100" />
+                        </Link>
                       </h2>
                       <p className="mt-0.5 truncate text-[12px] text-fg-muted">
                         {unit?.name}

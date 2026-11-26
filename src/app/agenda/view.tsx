@@ -1,6 +1,9 @@
 "use client";
 
-import { CalendarDays, MapPin, Plus, Users } from "lucide-react";
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { CalendarDays, ChevronRight, MapPin, Plus, Users } from "lucide-react";
 import { TODAY } from "@/mocks/queries";
 import { useQueries } from "@/store/use-queries";
 import { num, time, weekday } from "@/lib/format";
@@ -13,29 +16,13 @@ import {
   EmptyState,
   PageHeader,
 } from "@/ui/primitives";
-import type { EventKind } from "@/mocks/types";
+import { EventFormModal } from "@/modules/events/event-form";
+import { KIND_LABEL, KIND_TONE } from "@/modules/events/labels";
 import { cn } from "@/lib/utils";
 
-
-const KIND_LABEL: Record<EventKind, string> = {
-  culto: "Culto",
-  ensaio: "Ensaio",
-  reuniao: "Reunião",
-  evento: "Evento",
-  curso: "Curso",
-  celula: "Célula",
-};
-
-const KIND_TONE: Record<EventKind, "brand" | "neutral" | "accent" | "outline"> = {
-  culto: "brand",
-  ensaio: "neutral",
-  reuniao: "outline",
-  evento: "accent",
-  curso: "outline",
-  celula: "neutral",
-};
-
 export function View() {
+  const router = useRouter();
+  const [formOpen, setFormOpen] = useState(false);
   const { getRoom, getUnit, pastEvents, registrationCount, upcomingEvents } = useQueries();
   const upcoming = upcomingEvents(undefined, 20);
   const past = pastEvents().slice(0, 5);
@@ -57,7 +44,7 @@ export function View() {
         title="Agenda"
         description={`${num(upcoming.length)} eventos agendados`}
         actions={
-          <Button size="sm">
+          <Button size="sm" onClick={() => setFormOpen(true)}>
             <Plus />
             Novo evento
           </Button>
@@ -73,7 +60,7 @@ export function View() {
                 title="Agenda vazia"
                 description="Cadastre cultos, ensaios e eventos para montar a programação da igreja."
                 action={
-                  <Button size="sm">
+                  <Button size="sm" onClick={() => setFormOpen(true)}>
                     <Plus />
                     Criar primeiro evento
                   </Button>
@@ -134,9 +121,13 @@ export function View() {
 
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <p className="text-[13px] font-medium text-fg">
+                                  <Link
+                                    href={`/eventos/${event.id}`}
+                                    className="group/title flex items-center gap-1 text-[13px] font-medium text-fg hover:underline"
+                                  >
                                     {event.title}
-                                  </p>
+                                    <ChevronRight className="size-3 text-fg-muted opacity-0 transition-opacity group-hover/title:opacity-100" />
+                                  </Link>
                                   <Badge tone={KIND_TONE[event.kind]}>
                                     {KIND_LABEL[event.kind]}
                                   </Badge>
@@ -259,6 +250,13 @@ export function View() {
           </Card>
         </div>
       </div>
+
+      {formOpen && (
+        <EventFormModal
+          onOpenChange={setFormOpen}
+          onSaved={(event) => router.push(`/eventos/${event.id}`)}
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,19 @@
 "use client";
 
-import { CircleAlert, Clock, MapPin, Plus, Sparkles, Users } from "lucide-react";
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  ChevronRight,
+  CircleAlert,
+  Clock,
+  MapPin,
+  Plus,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { useQueries } from "@/store/use-queries";
+import { EventFormModal } from "@/modules/events/event-form";
 import { dateTime, money, num, percent, shortName } from "@/lib/format";
 import { Button } from "@/ui/button";
 import {
@@ -18,6 +30,8 @@ import { cn } from "@/lib/utils";
 
 
 export function View() {
+  const router = useRouter();
+  const [formOpen, setFormOpen] = useState(false);
   const { eventsWithRegistrations } = useQueries();
   const events = eventsWithRegistrations();
   const withSignups = events.filter((e) => e.confirmed.length > 0);
@@ -36,7 +50,7 @@ export function View() {
         title="Eventos"
         description={`${num(withSignups.length)} eventos com inscrição aberta`}
         actions={
-          <Button size="sm">
+          <Button size="sm" onClick={() => setFormOpen(true)}>
             <Plus />
             Novo evento
           </Button>
@@ -61,7 +75,7 @@ export function View() {
             title="Nenhum evento com inscrição"
             description="Defina capacidade num evento da agenda para abrir inscrições pelo portal do membro."
             action={
-              <Button size="sm">
+              <Button size="sm" onClick={() => setFormOpen(true)}>
                 <Plus />
                 Criar evento com inscrição
               </Button>
@@ -77,7 +91,15 @@ export function View() {
               <Card key={e.event.id}>
                 <CardHeader className="flex-wrap gap-3">
                   <div className="min-w-0">
-                    <CardTitle>{e.event.title}</CardTitle>
+                    <CardTitle>
+                      <Link
+                        href={`/eventos/${e.event.id}`}
+                        className="group/title flex items-center gap-1 hover:underline"
+                      >
+                        {e.event.title}
+                        <ChevronRight className="size-3.5 text-fg-muted opacity-0 transition-opacity group-hover/title:opacity-100" />
+                      </Link>
+                    </CardTitle>
                     <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-fg-muted">
                       <span className="flex items-center gap-1">
                         <Clock className="size-3" />
@@ -170,12 +192,12 @@ export function View() {
                       <p className="text-[11px] uppercase tracking-wide text-fg-muted">
                         Inscritos
                       </p>
-                      <button
-                        type="button"
+                      <Link
+                        href={`/eventos/${e.event.id}`}
                         className="text-[12px] font-medium text-interactive hover:underline"
                       >
                         Ver lista completa
-                      </button>
+                      </Link>
                     </div>
 
                     <div className="flex flex-wrap gap-1.5">
@@ -236,6 +258,13 @@ export function View() {
             );
           })}
         </div>
+      )}
+
+      {formOpen && (
+        <EventFormModal
+          onOpenChange={setFormOpen}
+          onSaved={(event) => router.push(`/eventos/${event.id}`)}
+        />
       )}
     </div>
   );

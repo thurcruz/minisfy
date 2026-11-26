@@ -15,6 +15,7 @@ import { TransactionFormModal } from "@/modules/finance/transaction-form";
 import { dateNumeric, delta, money, num } from "@/lib/format";
 import { GroupedBarChart, HBarChart, Legend } from "@/ui/charts";
 import { Button } from "@/ui/button";
+import { PlannedButton } from "@/ui/planned";
 import {
   Badge,
   Card,
@@ -79,10 +80,12 @@ export function View() {
         description="Novembro de 2026 · Comunidade Esperança · todas as unidades"
         actions={
           <>
-            <Button variant="secondary" size="sm">
+            <PlannedButton variant="secondary" size="sm"
+              reason="Exportação de lançamentos ainda não construída"
+            >
               <Download />
               Exportar
-            </Button>
+            </PlannedButton>
             <Button size="sm" onClick={() => setFormOpen(true)}>
               <Plus />
               Novo lançamento

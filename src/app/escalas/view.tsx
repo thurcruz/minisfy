@@ -5,7 +5,7 @@ import { TODAY } from "@/mocks/queries";
 import { useQueries } from "@/store/use-queries";
 import { useStore } from "@/store/data-store";
 import { dateTime, num, shortName } from "@/lib/format";
-import { Button } from "@/ui/button";
+import { PlannedButton } from "@/ui/planned";
 import {
   Avatar,
   Badge,
@@ -50,14 +50,18 @@ export function View() {
         description={`${num(totalConfirmed)} de ${num(totalRequired)} vagas confirmadas nos próximos eventos`}
         actions={
           <>
-            <Button variant="secondary" size="sm">
+            <PlannedButton variant="secondary" size="sm"
+              reason="Sugestão automática depende do motor de rodízio com disponibilidade e teto mensal — ainda não construído"
+            >
               <Sparkles />
               Sugerir escala
-            </Button>
-            <Button size="sm">
+            </PlannedButton>
+            <PlannedButton size="sm"
+              reason="Montar escala por evento e função ainda não construído"
+            >
               <Plus />
               Nova escala
-            </Button>
+            </PlannedButton>
           </>
         }
       />
@@ -137,10 +141,12 @@ export function View() {
             title="Nenhuma escala montada"
             description="Crie uma escala a partir de um evento da agenda e convide os voluntários."
             action={
-              <Button size="sm">
+              <PlannedButton size="sm"
+                reason="Montar escala por evento e função ainda não construído"
+              >
                 <Plus />
                 Montar primeira escala
-              </Button>
+              </PlannedButton>
             }
           />
         </Card>

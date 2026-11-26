@@ -426,7 +426,7 @@ export const events: ChurchEvent[] = [
 /* Escalas                                                             */
 /* ================================================================== */
 
-export const scheduleSlots: ScheduleSlot[] = [
+const UPCOMING_SLOTS: ScheduleSlot[] = [
   { id: "s-01", eventId: "e-03", positionId: "pos-vocal", requiredCount: 3 },
   { id: "s-02", eventId: "e-03", positionId: "pos-violao", requiredCount: 1 },
   { id: "s-03", eventId: "e-03", positionId: "pos-teclado", requiredCount: 1 },
@@ -445,7 +445,7 @@ export const scheduleSlots: ScheduleSlot[] = [
   { id: "s-16", eventId: "e-05", positionId: "pos-porta", requiredCount: 1 },
 ];
 
-export const scheduleAssignments: ScheduleAssignment[] = [
+const UPCOMING_ASSIGNMENTS: ScheduleAssignment[] = [
   /* Domingo manhã — louvor completo e confirmado */
   { id: "a-01", slotId: "s-01", personId: "p-11", status: "confirmed", respondedAt: d("2026-11-20") },
   { id: "a-02", slotId: "s-01", personId: "p-31", status: "confirmed", respondedAt: d("2026-11-20") },
@@ -834,6 +834,22 @@ export const roomReservations: RoomReservation[] = [
 ];
 
 /* ================================================================== */
+/* Usuário do protótipo                                                */
+/* ================================================================== */
+
+/**
+ * Quem o protótipo finge ser. Não existe autenticação ainda (Fase 1),
+ * mas várias ações carregam "quem fez": aprovar reserva, pedir sala,
+ * assumir o acompanhamento de um visitante. Em vez de inventar um
+ * nome na hora da gravação, tudo passa por esta pessoa — a mesma que
+ * o seed já registra como aprovadora das reservas — e a interface diz
+ * na cara que é o usuário do protótipo.
+ *
+ * Quando o Supabase entrar, isto vira `auth.uid()`.
+ */
+export const currentUserId = "p-04";
+
+/* ================================================================== */
 /* Voluntários                                                         */
 /* ================================================================== */
 
@@ -896,4 +912,96 @@ export const volunteerBlackouts: VolunteerBlackout[] = [
   { id: "vb-2", personId: "p-24", startsAt: d("2026-11-28"), endsAt: d("2026-11-30"), reason: "Casamento na família" },
   { id: "vb-3", personId: "p-43", startsAt: d("2026-12-20"), endsAt: d("2027-01-05"), reason: "Férias" },
   { id: "vb-4", personId: "p-29", startsAt: d("2026-11-25"), endsAt: d("2026-11-26"), reason: "Pós-operatório" },
+];
+
+/* ================================================================== */
+/* Escalas já realizadas                                               */
+/* ================================================================== */
+
+/**
+ * Histórico de escalas dos cultos passados.
+ *
+ * Sem ele, "já serviu" seria zero para todo mundo e o ministério não
+ * teria passado nenhum — o sistema pareceria recém-instalado numa
+ * igreja de doze anos. Os nomes saem do próprio pool de voluntários
+ * habilitados em cada função, então ninguém aparece servindo em algo
+ * que não sabe fazer, e cada pessoa serve no máximo uma função por
+ * culto.
+ */
+function buildPastSchedules() {
+  const slots: ScheduleSlot[] = [];
+  const assignments: ScheduleAssignment[] = [];
+
+  const plan: Array<[eventId: string, positionId: string, required: number]> = [
+    ["e-p1", "pos-vocal", 3],
+    ["e-p1", "pos-violao", 1],
+    ["e-p1", "pos-teclado", 1],
+    ["e-p1", "pos-bateria", 1],
+    ["e-p1", "pos-som", 1],
+    ["e-p1", "pos-projecao", 1],
+    ["e-p1", "pos-porta", 2],
+    ["e-p1", "pos-kids", 2],
+    ["e-p2", "pos-vocal", 2],
+    ["e-p2", "pos-teclado", 1],
+    ["e-p2", "pos-som", 1],
+    ["e-p2", "pos-camera", 1],
+    ["e-p2", "pos-porta", 1],
+    ["e-p3", "pos-vocal", 2],
+    ["e-p3", "pos-violao", 1],
+    ["e-p3", "pos-som", 1],
+    ["e-p3", "pos-projecao", 1],
+    ["e-p3", "pos-acolhida", 2],
+  ];
+
+  const usedByEvent = new Map<string, Set<string>>();
+  let rotation = 0;
+
+  plan.forEach(([eventId, positionId, required], index) => {
+    const slotId = `s-p${String(index + 1).padStart(2, "0")}`;
+    slots.push({ id: slotId, eventId, positionId, requiredCount: required });
+
+    const event = events.find((e) => e.id === eventId);
+    if (!event) return;
+
+    const used = usedByEvent.get(eventId) ?? new Set<string>();
+    usedByEvent.set(eventId, used);
+
+    const pool = volunteerProfiles
+      .filter((v) => v.positionIds.includes(positionId))
+      .map((v) => v.personId)
+      .filter((id) => !used.has(id));
+
+    /* Resposta registrada três dias antes do culto. */
+    const responded = new Date(event.startsAt);
+    responded.setDate(responded.getDate() - 3);
+    const respondedAt = responded.toISOString().slice(0, 10);
+
+    for (let i = 0; i < Math.min(required, pool.length); i++) {
+      const personId = pool[(rotation + i) % pool.length]!;
+      if (used.has(personId)) continue;
+      used.add(personId);
+      assignments.push({
+        id: `a-p${String(assignments.length + 1).padStart(2, "0")}`,
+        slotId,
+        personId,
+        status: "confirmed",
+        respondedAt,
+      });
+    }
+    rotation += required;
+  });
+
+  return { slots, assignments };
+}
+
+const PAST_SCHEDULES = buildPastSchedules();
+
+export const scheduleSlots: ScheduleSlot[] = [
+  ...UPCOMING_SLOTS,
+  ...PAST_SCHEDULES.slots,
+];
+
+export const scheduleAssignments: ScheduleAssignment[] = [
+  ...UPCOMING_ASSIGNMENTS,
+  ...PAST_SCHEDULES.assignments,
 ];

@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { MapPin, Plus, TrendingDown, TrendingUp, UsersRound } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useQueries } from "@/store/use-queries";
+import { GroupFormModal } from "@/modules/groups/group-form";
 import { delta, money, num, percent, shortName, weekday } from "@/lib/format";
 import { AreaChart } from "@/ui/charts";
 import { Button } from "@/ui/button";
@@ -20,6 +23,8 @@ import { cn } from "@/lib/utils";
 
 
 export function View() {
+  const router = useRouter();
+  const [formOpen, setFormOpen] = useState(false);
   const { getUnit, groupAttendanceSeries, groupsWithStats } = useQueries();
   const groups = groupsWithStats();
   const attendance = groupAttendanceSeries(undefined, 8);
@@ -37,7 +42,7 @@ export function View() {
         title="Pequenos grupos"
         description={`${num(active.length)} grupos ativos · ${num(totalMembers)} participantes`}
         actions={
-          <Button size="sm">
+          <Button size="sm" onClick={() => setFormOpen(true)}>
             <Plus />
             Novo grupo
           </Button>
@@ -110,8 +115,8 @@ export function View() {
                         {shortName(g.leader.name)}
                       </span>
                     </span>
-                    <Button variant="ghost" size="sm">
-                      Cobrar
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link href={`/grupos/${g.group.id}`}>Abrir</Link>
                     </Button>
                   </li>
                 ))}
@@ -137,7 +142,7 @@ export function View() {
             title="Nenhum pequeno grupo"
             description="Crie o primeiro grupo e vincule um líder para começar a acompanhar presença."
             action={
-              <Button size="sm">
+              <Button size="sm" onClick={() => setFormOpen(true)}>
                 <Plus />
                 Criar primeiro grupo
               </Button>
@@ -248,6 +253,13 @@ export function View() {
             );
           })}
         </div>
+      )}
+
+      {formOpen && (
+        <GroupFormModal
+          onOpenChange={setFormOpen}
+          onSaved={(group) => router.push(`/grupos/${group.id}`)}
+        />
       )}
     </div>
   );

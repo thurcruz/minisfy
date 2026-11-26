@@ -1,11 +1,11 @@
 # MINISFY — Documento de Progresso
 
 > Fonte única de verdade sobre o estado real do produto.
-> Última atualização: **2026-11-25**
+> Última atualização: **2026-11-26**
 
 ## Estado atual
 
-**Protótipo · 13 de 34 telas, com detalhe e formulários funcionando.**
+**Protótipo · 16 de 34 telas, com detalhe e formulários funcionando.**
 Aplicação roda, compila, passa typecheck e lint. **Ainda não há banco,
 autenticação nem permissões** — por decisão sua, o backend vem depois.
 
@@ -28,6 +28,11 @@ autenticação nem permissões** — por decisão sua, o backend vem depois.
 | 2026-11-25 | Telas de detalhe: perfil de pessoa e de pequeno grupo |
 | 2026-11-25 | Store do protótipo com persistência no navegador; cadastro e edição de pessoa salvam de verdade; busca, filtros e paginação funcionais |
 | 2026-11-25 | Relatório de encontro, lançamento financeiro e resposta de convite de escala — os três salvam e recalculam os indicadores |
+| 2026-11-26 | Telas de detalhe de ministério, evento e visitante, ligadas a partir das listagens |
+| 2026-11-26 | Formulários de grupo, evento e reserva, com checagem de conflito de sala pela mesma regra do AD-10 |
+| 2026-11-26 | Funil de visitante operante: mover etapa, registrar visita, agendar contato, vincular a grupo, registrar como congregado |
+| 2026-11-26 | Aprovar e recusar pedidos de reserva |
+| 2026-11-26 | Histórico de escalas no seed — "já serviu" deixou de ser zero para todo mundo |
 
 ### Decisões aprovadas por você
 
@@ -43,8 +48,8 @@ Nada em andamento. Aguardando sua direção sobre o próximo passo.
 
 | Prioridade | Item |
 |---|---|
-| Alta | Telas de detalhe de visitante, ministério, evento e lançamento |
-| Alta | Formulários de grupo, evento, reserva e ministério (hoje só pessoa, encontro e lançamento) |
+| Alta | Tela de detalhe de lançamento financeiro e formulário de ministério |
+| Média | Edição de reserva (hoje o remarque é recusar e pedir de novo) e de grupo |
 | Média | Telas restantes: Pastoral, Ensino, Comunicação, Pass, Portal do Membro, Patrimônio, Estoque, Relatórios, Intelligence, Flow, Configurações |
 | Alta | Fase 1 — Supabase: tenancy, RBAC, RLS, autenticação |
 | Média | Validação responsiva em telas pequenas (ver *Problemas*) |
@@ -98,11 +103,15 @@ Todas em `docs/01-ARQUITETURA.md` (AD-01 a AD-14). Adicionais tomadas no protót
 | 12 | `new Date()` durante o render quebra o prerender do Next 16 | ✅ corrigido — usa a data de referência do protótipo |
 | 13 | Responsividade em telas pequenas não verificada visualmente | ⚠️ aberto — redimensionamento falhou no ambiente de teste |
 | 14 | Tipografia da marca não fornecida | ⚠️ aberto — usando Sora como display |
+| 15 | Registro criado no protótipo caía no 404 do próprio detalhe: no HTML do servidor o dataset é o seed, e `notFound()` disparava antes do store ser lido | ✅ corrigido — a tela espera a hidratação |
+| 16 | Nenhuma escala no passado: "já serviu" era zero para toda a igreja | ✅ corrigido — histórico gerado a partir do pool de cada função |
+| 17 | Erro de formulário continuava na tela depois do campo corrigido | ✅ corrigido — erros derivados no render, não guardados em estado |
+| 18 | Botões sem ação em grupos, agenda, eventos, ministérios e reservas | ✅ corrigido — ligados ou trocados por link; sobra "Novo ministério", ainda sem formulário |
 
 ## Próximos passos
 
-1. **Telas de detalhe que faltam** (visitante, ministério, evento) e os
-   formulários de criação de grupo, evento e reserva.
+1. **O que falta de CRUD**: detalhe de lançamento financeiro, formulário de
+   ministério e edição de reserva e de grupo.
 2. **Subir para GitHub + Vercel** quando você quiser compartilhar o link.
 3. **Fase 1** (Supabase, tenancy, RBAC, autenticação), trocando `mocks/` por
    dados reais.

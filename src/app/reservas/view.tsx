@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Building2,
   Check,
@@ -11,6 +12,8 @@ import {
 } from "lucide-react";
 import { TODAY } from "@/mocks/queries";
 import { useQueries } from "@/store/use-queries";
+import { useStore } from "@/store/data-store";
+import { ReservationFormModal } from "@/modules/rooms/reservation-form";
 import { dateShort, num, shortName, time } from "@/lib/format";
 import { HBarChart } from "@/ui/charts";
 import { Button } from "@/ui/button";
@@ -46,6 +49,8 @@ const STATUS_TONE: Record<
 };
 
 export function View() {
+  const [formOpen, setFormOpen] = useState(false);
+  const { decideReservation } = useStore();
   const { reservationsWithConflicts, roomUsage } = useQueries();
   const all = reservationsWithConflicts();
   const upcoming = all.filter(
@@ -72,7 +77,7 @@ export function View() {
         title="Reservas de espaço"
         description={`${num(upcoming.length)} reservas futuras em ${num(usage.length)} ambientes`}
         actions={
-          <Button size="sm">
+          <Button size="sm" onClick={() => setFormOpen(true)}>
             <Plus />
             Nova reserva
           </Button>
@@ -125,14 +130,20 @@ export function View() {
                     </li>
                   ))}
                 </ul>
-                <div className="mt-2.5 flex gap-2">
-                  <Button variant="secondary" size="sm">
-                    Propor outro horário
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    Recusar
-                  </Button>
-                </div>
+                {row.reservation.status === "pending" && (
+                  <div className="mt-2.5 flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() =>
+                        decideReservation(row.reservation.id, "rejected")
+                      }
+                    >
+                      <X />
+                      Recusar o pedido
+                    </Button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -140,7 +151,9 @@ export function View() {
             Com o banco em produção este conflito nem chega a existir: a
             constraint <code>EXCLUDE USING gist</code> rejeita a sobreposição na
             escrita (AD-10). Esta tela cobre o caso de pedidos ainda não
-            aprovados, que convivem até alguém decidir.
+            aprovados, que convivem até alguém decidir. Remarcar o pedido
+            depende do formulário de edição da reserva, que ainda não existe —
+            por ora, recusar e pedir de novo no horário livre.
           </p>
         </Card>
       )}
@@ -175,11 +188,28 @@ export function View() {
                   )}
                 </span>
                 <div className="flex gap-2">
-                  <Button variant="secondary" size="sm">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() =>
+                      decideReservation(row.reservation.id, "rejected")
+                    }
+                  >
                     <X />
                     Recusar
                   </Button>
-                  <Button size="sm" disabled={row.conflictsWith.length > 0}>
+                  <Button
+                    size="sm"
+                    disabled={row.conflictsWith.length > 0}
+                    title={
+                      row.conflictsWith.length > 0
+                        ? "Sobrepõe outra reserva: o banco rejeitaria a escrita (AD-10)"
+                        : undefined
+                    }
+                    onClick={() =>
+                      decideReservation(row.reservation.id, "approved")
+                    }
+                  >
                     <Check />
                     Aprovar
                   </Button>
@@ -203,7 +233,7 @@ export function View() {
                 title="Nenhuma reserva futura"
                 description="Reserve salas e auditórios para ensaios, reuniões e eventos."
                 action={
-                  <Button size="sm">
+                  <Button size="sm" onClick={() => setFormOpen(true)}>
                     <Plus />
                     Criar primeira reserva
                   </Button>
@@ -311,6 +341,8 @@ export function View() {
           </Card>
         </div>
       </div>
+
+      {formOpen && <ReservationFormModal onOpenChange={setFormOpen} />}
     </div>
   );
 }

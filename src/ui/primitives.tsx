@@ -301,6 +301,26 @@ export function Skeleton({ className }: { className?: string }) {
   return <div className={cn("skeleton rounded-md", className)} />;
 }
 
+/**
+ * Esqueleto de tela de detalhe, usado enquanto o store do navegador
+ * não foi lido. No HTML do servidor um registro criado no protótipo
+ * ainda não existe: sem isto, abrir o perfil de alguém que você acabou
+ * de cadastrar cairia no 404.
+ */
+export function RecordLoading() {
+  return (
+    <div className="mx-auto max-w-[1200px] space-y-4" aria-busy="true">
+      <span className="sr-only">Carregando registro</span>
+      <Skeleton className="h-8 w-40" />
+      <Skeleton className="h-44 w-full rounded-lg" />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Skeleton className="h-64 rounded-lg lg:col-span-2" />
+        <Skeleton className="h-64 rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
 /* ================================================================== */
 /* Layout de página                                                    */
 /* ================================================================== */

@@ -20,7 +20,13 @@ import type {
   VolunteerProfile,
 } from "./types";
 
-export { organization, units, TODAY, visitorStages } from "./seed";
+export {
+  organization,
+  units,
+  TODAY,
+  visitorStages,
+  currentUserId,
+} from "./seed";
 
 /** Escopo da consulta: toda a organização ou uma unidade. */
 export type Scope = { unitId: string | null };
@@ -917,11 +923,55 @@ function eventsWithRegistrations(scope: Scope = ALL_UNITS) {
 /* Reservas de espaço — Módulos 08 e 12                                */
 /* ================================================================== */
 
-function overlaps(a: RoomReservation, b: RoomReservation) {
+/** Regra de sobreposição de janelas — uma só, usada em toda parte. */
+function windowsOverlap(
+  aStart: string,
+  aEnd: string,
+  bStart: string,
+  bEnd: string,
+) {
   return (
-    new Date(a.startsAt) < new Date(b.endsAt) &&
-    new Date(b.startsAt) < new Date(a.endsAt)
+    new Date(aStart) < new Date(bEnd) && new Date(bStart) < new Date(aEnd)
   );
+}
+
+function overlaps(a: RoomReservation, b: RoomReservation) {
+  return windowsOverlap(a.startsAt, a.endsAt, b.startsAt, b.endsAt);
+}
+
+/**
+ * Reservas vivas que colidem com uma janela de horário na mesma sala.
+ *
+ * É a mesma regra que a EXCLUDE constraint do AD-10 aplica no banco.
+ * Aqui serve para o formulário avisar antes de gravar, em vez de
+ * deixar o erro estourar na escrita — mas a validação que vale é a do
+ * banco: o navegador nunca é mecanismo de garantia.
+ */
+function roomConflicts(input: {
+  roomId: string;
+  startsAt: string;
+  endsAt: string;
+  ignoreId?: string;
+}) {
+  return roomReservations
+    .filter(
+      (r) =>
+        r.roomId === input.roomId &&
+        r.id !== input.ignoreId &&
+        (r.status === "approved" || r.status === "pending") &&
+        windowsOverlap(input.startsAt, input.endsAt, r.startsAt, r.endsAt),
+    )
+    .map((reservation) => ({
+      reservation,
+      room: ROOMS_BY_ID.get(reservation.roomId)!,
+      event: reservation.eventId
+        ? (EVENTS_BY_ID.get(reservation.eventId) ?? null)
+        : null,
+      requestedBy: PEOPLE_BY_ID.get(reservation.requestedById) ?? null,
+    }))
+    .sort((a, b) =>
+      a.reservation.startsAt.localeCompare(b.reservation.startsAt),
+    );
 }
 
 function reservationsWithConflicts(scope: Scope = ALL_UNITS) {
@@ -1278,6 +1328,381 @@ function groupProfile(groupId: string) {
   };
 }
 
+/* ================================================================== */
+/* Perfil de ministério — tela de detalhe                              */
+/* ================================================================== */
+
+function ministryProfile(ministryId: string) {
+  const ministry = MINISTRIES_BY_ID.get(ministryId);
+  if (!ministry) return null;
+
+  const monthStart = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
+  const monthEnd = new Date(TODAY.getFullYear(), TODAY.getMonth() + 1, 0);
+
+  const ministryPositions = positions.filter((p) => p.ministryId === ministryId);
+  const slots = slotStatuses(ALL_UNITS).filter(
+    (s) => s.ministry.id === ministryId,
+  );
+  const upcomingSlots = slots.filter(
+    (s) => new Date(s.event.startsAt) >= TODAY,
+  );
+  const pastSlots = slots
+    .filter((s) => new Date(s.event.startsAt) < TODAY)
+    .sort((a, b) => b.event.startsAt.localeCompare(a.event.startsAt));
+
+  const team = volunteerProfiles
+    .filter((v) => v.ministryId === ministryId)
+    .map((profile) => {
+      const person = PEOPLE_BY_ID.get(profile.personId);
+      if (!person) return null;
+
+      const assignments = slots.flatMap((slot) =>
+        slot.assignments
+          .filter((a) => a.person.id === profile.personId)
+          .map((a) => ({ status: a.status, slot })),
+      );
+      const thisMonth = assignments.filter((a) => {
+        const date = new Date(a.slot.event.startsAt);
+        return date >= monthStart && date <= monthEnd;
+      });
+
+      return {
+        profile,
+        person,
+        isLeader: ministry.leaderId === person.id,
+        positions: profile.positionIds
+          .map((id) => POSITIONS_BY_ID.get(id)!)
+          .filter(Boolean),
+        upcoming: assignments
+          .filter((a) => new Date(a.slot.event.startsAt) >= TODAY)
+          .sort((a, b) =>
+            a.slot.event.startsAt.localeCompare(b.slot.event.startsAt),
+          ),
+        assignedThisMonth: thisMonth.length,
+        pending: assignments.filter((a) => a.status === "invited").length,
+        maxPerMonth: profile.maxPerMonth,
+        /** Acima do teto que o próprio voluntário definiu */
+        overloaded: thisMonth.length > profile.maxPerMonth,
+        activeBlackout:
+          volunteerBlackouts.find(
+            (b) =>
+              b.personId === person.id &&
+              toDate(b.startsAt) <= TODAY &&
+              toDate(b.endsAt) >= TODAY,
+          ) ?? null,
+      };
+    })
+    .filter((t): t is NonNullable<typeof t> => t !== null)
+    .sort(
+      (a, b) =>
+        Number(b.isLeader) - Number(a.isLeader) ||
+        a.person.name.localeCompare(b.person.name, "pt-BR"),
+    );
+
+  /**
+   * Cobertura por função: quantas pessoas sabem fazer cada coisa.
+   * Função com um único voluntário é ponto único de falha — se ele
+   * viajar, o culto fica sem. É o número que o líder precisa ver, e
+   * que nenhuma lista de nomes mostra.
+   */
+  const coverage = ministryPositions
+    .map((position) => {
+      const qualified = team.filter((t) =>
+        t.profile.positionIds.includes(position.id),
+      );
+      const slotsHere = upcomingSlots.filter(
+        (s) => s.position.id === position.id,
+      );
+      return {
+        position,
+        qualified,
+        available: qualified.filter((t) => !t.activeBlackout).length,
+        demand: slotsHere.reduce((s, x) => s + x.required, 0),
+        open: slotsHere.reduce((s, x) => s + x.open, 0),
+      };
+    })
+    .sort(
+      (a, b) =>
+        a.qualified.length - b.qualified.length ||
+        a.position.name.localeCompare(b.position.name, "pt-BR"),
+    );
+
+  /**
+   * Marcadas como do ministério no cadastro, mas sem perfil de
+   * voluntário: não entram em escala nenhuma. É lacuna de dado, não
+   * decisão — por isso aparece na tela em vez de ficar escondida.
+   */
+  const teamIds = new Set(team.map((t) => t.person.id));
+  const withoutProfile = people
+    .filter((p) => p.ministryIds.includes(ministryId) && !teamIds.has(p.id))
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+  return {
+    ministry,
+    unit: UNITS_BY_ID.get(ministry.unitId),
+    leader: PEOPLE_BY_ID.get(ministry.leaderId) ?? null,
+    positions: ministryPositions,
+    team,
+    coverage,
+    withoutProfile,
+    upcomingSlots,
+    pastSlots,
+    openNext: upcomingSlots.reduce((s, x) => s + x.open, 0),
+    pendingNext: upcomingSlots.reduce((s, x) => s + x.invited, 0),
+    /** Vezes que alguém do ministério já servir em escala confirmada */
+    servedCount: pastSlots.reduce((s, x) => s + x.confirmed, 0),
+  };
+}
+
+/* ================================================================== */
+/* Perfil de evento — tela de detalhe                                  */
+/* ================================================================== */
+
+const AGE_BANDS = [
+  { label: "0–12", min: 0, max: 12 },
+  { label: "13–17", min: 13, max: 17 },
+  { label: "18–29", min: 18, max: 29 },
+  { label: "30–59", min: 30, max: 59 },
+  { label: "60+", min: 60, max: 200 },
+] as const;
+
+function eventProfile(eventId: string) {
+  const event = EVENTS_BY_ID.get(eventId);
+  if (!event) return null;
+
+  const rows = registrationsFor(eventId).sort((a, b) =>
+    a.registration.registeredAt.localeCompare(b.registration.registeredAt),
+  );
+  const confirmed = rows.filter((r) => r.registration.status === "confirmed");
+  const waitlist = rows.filter((r) => r.registration.status === "waitlist");
+  const cancelled = eventRegistrations
+    .filter((r) => r.eventId === eventId && r.status === "cancelled")
+    .map((r) => ({ registration: r, person: PEOPLE_BY_ID.get(r.personId)! }))
+    .filter((r) => r.person);
+
+  const paidCents = confirmed
+    .filter((r) => r.registration.paid)
+    .reduce((s, r) => s + r.registration.amountCents, 0);
+  const pendingCents = confirmed
+    .filter((r) => !r.registration.paid)
+    .reduce((s, r) => s + r.registration.amountCents, 0);
+
+  const room = event.roomId ? (ROOMS_BY_ID.get(event.roomId) ?? null) : null;
+  const reservation =
+    roomReservations.find((r) => r.eventId === eventId) ?? null;
+
+  const service = services.find((s) => s.eventId === eventId) ?? null;
+  const program = service
+    ? serviceItems
+        .filter((i) => i.serviceId === service.id)
+        .sort((a, b) => a.position - b.position)
+        .map((item) => ({
+          item,
+          responsible: item.responsibleId
+            ? (PEOPLE_BY_ID.get(item.responsibleId) ?? null)
+            : null,
+        }))
+    : [];
+
+  const team = slotStatuses(ALL_UNITS).filter((s) => s.event.id === eventId);
+
+  /** Faixa etária dos inscritos — define o que a estrutura precisa ter. */
+  const ageBands = AGE_BANDS.map((band) => ({
+    label: band.label,
+    value: confirmed.filter((r) => {
+      const years = age(r.person.birthDate, TODAY);
+      return years >= band.min && years <= band.max;
+    }).length,
+  }));
+
+  /** Curva acumulada de inscrições: quando as pessoas se inscreveram. */
+  const buckets = new Map<string, number>();
+  for (const r of rows) {
+    const key = r.registration.registeredAt.slice(0, 10);
+    buckets.set(key, (buckets.get(key) ?? 0) + 1);
+  }
+  let running = 0;
+  const curve = [...buckets.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([date, count]) => {
+      running += count;
+      return {
+        label: new Intl.DateTimeFormat("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+        }).format(toDate(date)),
+        value: running,
+      };
+    });
+
+  const capacity = event.capacity;
+  const plannedMinutes = program.reduce(
+    (s, p) => s + p.item.durationMinutes,
+    0,
+  );
+  const scheduledMinutes = Math.round(
+    (new Date(event.endsAt).getTime() - new Date(event.startsAt).getTime()) /
+      60_000,
+  );
+
+  return {
+    event,
+    unit: UNITS_BY_ID.get(event.unitId),
+    room,
+    reservation,
+    service,
+    program,
+    team,
+    confirmed,
+    waitlist,
+    cancelled,
+    paidCents,
+    pendingCents,
+    occupancy: capacity ? confirmed.length / capacity : null,
+    remaining: capacity ? Math.max(0, capacity - confirmed.length) : null,
+    /**
+     * Sala menor que a capacidade anunciada. O sistema aceitaria as
+     * inscrições e o problema só apareceria na porta — por isso o
+     * número vem para a tela.
+     */
+    roomShortfall:
+      capacity && room && room.capacity < capacity
+        ? capacity - room.capacity
+        : 0,
+    ageBands,
+    curve,
+    plannedMinutes,
+    scheduledMinutes,
+    overrunMinutes: Math.max(0, plannedMinutes - scheduledMinutes),
+    openSlots: team.reduce((s, x) => s + x.open, 0),
+    pendingInvites: team.reduce((s, x) => s + x.invited, 0),
+  };
+}
+
+/** Evento anterior e seguinte na ordem da agenda. */
+function eventNeighbours(eventId: string, scope: Scope = ALL_UNITS) {
+  const list = inScope(events, scope)
+    .slice()
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  const index = list.findIndex((e) => e.id === eventId);
+  if (index === -1)
+    return { previous: null, next: null, index: -1, total: list.length };
+  return {
+    previous: index > 0 ? list[index - 1]! : null,
+    next: index < list.length - 1 ? list[index + 1]! : null,
+    index,
+    total: list.length,
+  };
+}
+
+/* ================================================================== */
+/* Perfil de visitante — tela de detalhe                               */
+/* ================================================================== */
+
+const DAY_MS = 86_400_000;
+
+function daysBetween(from: Date, to: Date) {
+  return Math.round(
+    (startOfDay(to).getTime() - startOfDay(from).getTime()) / DAY_MS,
+  );
+}
+
+function visitorProfile(personId: string) {
+  const person = PEOPLE_BY_ID.get(personId);
+  const journey = visitorJourneys.find((j) => j.personId === personId) ?? null;
+  if (!person || !journey) return null;
+
+  const stages = visitorStages
+    .slice()
+    .sort((a, b) => a.position - b.position);
+  const stage = stages.find((s) => s.id === journey.stageId) ?? null;
+
+  const dueAt = journey.nextActionAt ? toDate(journey.nextActionAt) : null;
+  const daysSinceFirstVisit = daysBetween(toDate(journey.firstVisitAt), TODAY);
+
+  /**
+   * Grupos no bairro da pessoa, do menos cheio para o mais cheio: é o
+   * convite com mais chance de pegar, e o caminho de integração que o
+   * funil está tentando completar.
+   */
+  const nearbyGroups = groupsWithStats({ unitId: person.unitId })
+    .filter(
+      (g) =>
+        g.group.status === "active" &&
+        g.group.neighborhood === person.neighborhood,
+    )
+    .sort((a, b) => a.occupancy - b.occupancy);
+
+  /** Membros do mesmo bairro — quem pode levar e trazer. */
+  const neighbours = people
+    .filter(
+      (p) =>
+        p.id !== person.id &&
+        p.unitId === person.unitId &&
+        p.neighborhood === person.neighborhood &&
+        (p.status === "member" || p.status === "regular"),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+  const registrations = eventRegistrations
+    .filter((r) => r.personId === personId && r.status !== "cancelled")
+    .map((r) => ({ registration: r, event: EVENTS_BY_ID.get(r.eventId)! }))
+    .filter((r) => r.event)
+    .sort((a, b) => b.event.startsAt.localeCompare(a.event.startsAt));
+
+  const registeredIn = new Set(registrations.map((r) => r.event.id));
+  const openEvents = inScope(events, { unitId: person.unitId })
+    .filter(
+      (e) =>
+        e.capacity !== null &&
+        new Date(e.startsAt) >= TODAY &&
+        !registeredIn.has(e.id),
+    )
+    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+    .slice(0, 3);
+
+  return {
+    person,
+    journey,
+    stage,
+    stages,
+    owner: PEOPLE_BY_ID.get(journey.ownerId) ?? null,
+    unit: UNITS_BY_ID.get(person.unitId),
+    daysSinceFirstVisit,
+    dueAt,
+    /** Positivo quando o contato está atrasado, em dias */
+    overdueDays: dueAt ? daysBetween(dueAt, TODAY) : null,
+    /**
+     * Visitas por semana desde a primeira. Ritmo de retorno diz mais
+     * que a contagem solta: 4 visitas em 4 semanas é integração a
+     * caminho; 4 visitas em oito meses é alguém que passa de vez em
+     * quando.
+     */
+    visitsPerWeek:
+      daysSinceFirstVisit >= 7
+        ? journey.visitCount / (daysSinceFirstVisit / 7)
+        : null,
+    nearbyGroups,
+    neighbours,
+    registrations,
+    openEvents,
+  };
+}
+
+/** Visitante anterior e seguinte na ordem do funil. */
+function visitorNeighbours(personId: string, scope: Scope = ALL_UNITS) {
+  const list = visitorBoard(scope).flatMap((column) => column.cards);
+  const index = list.findIndex((c) => c.person.id === personId);
+  if (index === -1)
+    return { previous: null, next: null, index: -1, total: list.length };
+  return {
+    previous: index > 0 ? list[index - 1]!.person : null,
+    next: index < list.length - 1 ? list[index + 1]!.person : null,
+    index,
+    total: list.length,
+  };
+}
+
 return {
   getPerson,
   getUnit,
@@ -1323,11 +1748,17 @@ return {
   eventsWithRegistrations,
   reservationsWithConflicts,
   roomUsage,
+  roomConflicts,
   volunteersWithLoad,
   idleVolunteers,
   personProfile,
   personNeighbours,
   groupProfile,
+  ministryProfile,
+  eventProfile,
+  eventNeighbours,
+  visitorProfile,
+  visitorNeighbours,
 };
 }
 
@@ -1378,9 +1809,15 @@ export const {
   eventsWithRegistrations,
   reservationsWithConflicts,
   roomUsage,
+  roomConflicts,
   volunteersWithLoad,
   idleVolunteers,
   personProfile,
   personNeighbours,
   groupProfile,
+  ministryProfile,
+  eventProfile,
+  eventNeighbours,
+  visitorProfile,
+  visitorNeighbours,
 } = seedQueries;
